@@ -3,9 +3,13 @@ kind: CronJob
 metadata:
   name: slack-vsphere-cpu-notification
 spec:
-  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  schedule: "*/30 * * * *"
+  failedJobsHistoryLimit: 1
+  successfulJobsHistoryLimit: 1
   jobTemplate:
     spec:
+      backoffLimit: 2
       template:
         spec:
           containers:
