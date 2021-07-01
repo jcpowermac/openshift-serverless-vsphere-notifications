@@ -1,7 +1,5 @@
 #!/bin/pwsh
 
-Set-PowerCLIConfiguration -Scope User -ParticipateInCEIP $false
-
 Connect-VIServer -Server $Env:VCENTER_URI -Credential (Import-Clixml $Env:VCENTER_SECRET_PATH)
 
 $hosts = Get-VMHost
