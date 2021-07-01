@@ -24,12 +24,12 @@ spec:
                 secretKeyRef:
                   name: slack-webhook-uri
                   key: uri
-            image: busybox
+            image: quay.io/jcallen/vsphere-slack-notify:latest
             imagePullPolicy: Always
-            command:
+            args:
             - /bin/pwsh
-            - -f
-            - .\notifications.ps1
+            - -File
+            - /projects/notification.ps1
           restartPolicy: Never
           volumes:
           - name: vcenter-credential
