@@ -23,11 +23,11 @@ foreach($item in $hosts) {
     Write-Host "Host: $($item.Name), CPU: $($percentage)"
 }
 
-$ClusterPercentage = ($ClusterCpuUsageMhz / $ClusterCpuTotalMhz)
+$ClusterPercentage = ($ClusterCpuUsageMhz / $ClusterCpuTotalMhz).toString("P")
 
-Write-Host "Cluster CPU: $($ClusterPercentage.toString("P"))"
+Write-Host "Cluster CPU: $($ClusterPercentage)"
 
-if($ClusterPercentage -ge 75) {
-    $message += " Cluster CPU: $($ClusterPercentage.toString("P"))"
+if($ClusterPercentage -ge 70) {
+    $message += " Cluster CPU: $($ClusterPercentage)"
     Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $message
 }
