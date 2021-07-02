@@ -20,7 +20,7 @@ RUN export POWERSHELL_TELEMETRY_OPTOUT=1 && \
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted ; \
           Install-Module -Force -Scope AllUsers PSSlack ; \
           Install-Module -Scope AllUsers VMware.PowerCLI ; \
-          Set-PowerCLIConfiguration -Scope AllUsers -ParticipateInCeip $false -Confirm:$false"
+          Set-PowerCLIConfiguration -Scope AllUsers -ParticipateInCeip:\$false -Confirm:\$false"
 
 RUN for f in "${HOME}"; do \
       echo "Changing permissions on ${f}" && chgrp -R 0 ${f} && \
