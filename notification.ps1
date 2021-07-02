@@ -4,16 +4,29 @@ Connect-VIServer -Server $Env:VCENTER_URI -Credential (Import-Clixml $Env:VCENTE
 
 $hosts = Get-VMHost
 
+$message = ""
+$ClusterCpuTotalMhz = 0
+$ClusterCpuUsageMhz = 0
+
 foreach($item in $hosts) {
+    $ClusterCpuTotalMhz += $item.CpuTotalMhz
+    $ClusterCpuUsageMhz += $item.CpuUsageMhz
+
     $percentage = ($item.CpuUsageMhz / $item.CpuTotalMhz).tostring("P")
 
     if($percentage -ge 90) {
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ":fire: Host: $($item.Name), CPU: $($percentage)%"
+        $message += " :fire: Host: $($item.Name), CPU: $($percentage) "
     }
     elseif( $percentage -ge 80) {
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ":mag: Host: $($item.Name), CPU: $($percentage)%"
+        $message += " :mag: Host: $($item.Name), CPU: $($percentage) "
     }
     else {
         Write-Host "Host is ok"
     }
+}
+
+$ClusterPercentage = ($ClusterCpuUsageMhz / $ClusterCpuTotalMhz)
+if($ClusterPercentage -ge 75) {
+    $message += " Cluster CPU: $($ClusterPercentage.toString("P"))"
+    Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $message
 }
