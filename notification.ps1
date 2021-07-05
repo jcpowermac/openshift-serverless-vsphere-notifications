@@ -27,7 +27,7 @@ $ClusterPercentage = ($ClusterCpuUsageMhz / $ClusterCpuTotalMhz).toString("P")
 
 Write-Host "Cluster CPU: $($ClusterPercentage)"
 
-if($ClusterPercentage -ge 80) {
+if($ClusterPercentage -ge 85) {
     $message += " *Cluster CPU: $($ClusterPercentage)*"
     Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $message
 }
