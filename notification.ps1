@@ -34,4 +34,4 @@ if($ClusterPercentage -ge 85) {
     Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $message
 }
 
-Disconnect-VIServer -Server * -Force
+Disconnect-VIServer -Server * -Force:$true -Confirm:$false
