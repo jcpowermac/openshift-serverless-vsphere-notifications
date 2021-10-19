@@ -1,0 +1,45 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ibm-slack-vsphere-alerts-notification
+spec:
+  concurrencyPolicy: Forbid
+  schedule: "*/30 * * * *"
+  failedJobsHistoryLimit: 1
+  successfulJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          containers:
+          - name: notification
+            volumeMounts:
+            - name: vcenter-credential
+              mountPath: /var/run/secret/vcenter
+              readOnly: true
+            env:
+            - name: HTTP_PROXY
+              value: "172.31.255.31:3128"
+            - name: HTTPS_PROXY
+              value: "172.31.255.31:3128"
+            - name: VCENTER_SECRET_PATH
+              value: /var/run/secret/vcenter/creds.xml
+            - name: VCENTER_URI
+              value: "vcs8e-vc.ocp2.dev.cluster.com"
+            - name: SLACK_WEBHOOK_URI
+              valueFrom:
+                secretKeyRef:
+                  name: slack-webhook-uri
+                  key: uri
+            image: quay.io/jcallen/vsphere-slack-notify:latest
+            imagePullPolicy: Always
+            args:
+            - /bin/pwsh
+            - -File
+            - /projects/alerts.ps1
+          restartPolicy: Never
+          volumes:
+          - name: vcenter-credential
+            secret:
+              secretName: ibm-vcenter-credential

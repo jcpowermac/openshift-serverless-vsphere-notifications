@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: slack-vsphere-cpu-notification
+  name: vmc-slack-vsphere-alerts-notification
 spec:
   concurrencyPolicy: Forbid
   schedule: "*/30 * * * *"
@@ -33,9 +33,9 @@ spec:
             args:
             - /bin/pwsh
             - -File
-            - /projects/notification.ps1
+            - /projects/alerts.ps1
           restartPolicy: Never
           volumes:
           - name: vcenter-credential
             secret:
-              secretName: vcenter-credential
+              secretName: vmc-vcenter-credential

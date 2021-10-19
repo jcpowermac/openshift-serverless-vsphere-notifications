@@ -10,7 +10,7 @@ RUN mkdir /projects ${HOME} && \
       chmod -R g+rwX ${f}; \
     done
 
-ADD notification.ps1 /projects
+ADD scripts/* /projects
 ADD entrypoint.sh /
 
 RUN export POWERSHELL_TELEMETRY_OPTOUT=1 && \
