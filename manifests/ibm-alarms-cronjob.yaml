@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: ibm-slack-vsphere-alerts-notification
+  name: ibm-slack-vsphere-alarms-notification
 spec:
   concurrencyPolicy: Forbid
   schedule: "*/30 * * * *"
@@ -37,7 +37,7 @@ spec:
             args:
             - /bin/pwsh
             - -File
-            - /projects/alerts.ps1
+            - /projects/alarms.ps1
           restartPolicy: Never
           volumes:
           - name: vcenter-credential
