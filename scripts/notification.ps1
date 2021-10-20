@@ -1,8 +1,8 @@
 #!/bin/pwsh
 
-Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false
+Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false | Out-Null
 
-Connect-VIServer -Server $Env:VCENTER_URI -Credential (Import-Clixml $Env:VCENTER_SECRET_PATH)
+Connect-VIServer -Server $Env:VCENTER_URI -Credential (Import-Clixml $Env:VCENTER_SECRET_PATH) | Out-Null
 
 $hosts = Get-VMHost
 
