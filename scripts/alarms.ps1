@@ -20,17 +20,6 @@ try {
             }
         }
     }
-}
-catch {
-    Get-Error
-    exit 1
-}
-finally {
-    Disconnect-VIServer -Server * -Force:$true -Confirm:$false
-}
-
-# Get VCSA health
-try {
     Connect-CisServer -Server $Env:VCENTER_URI -Credential (Import-Clixml $Env:VCENTER_SECRET_PATH) | Out-Null
     if ((Invoke-GetHealthSystem) -ne "green") {
         Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ":fire: Check VCSA: $($Env:VCENTER_URI)"
@@ -42,7 +31,7 @@ catch {
 }
 finally {
     Disconnect-CisServer -Server * -Force:$true -Confirm:$false
+    Disconnect-VIServer -Server * -Force:$true -Confirm:$false
 }
-
 
 exit 0
