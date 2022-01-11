@@ -9,6 +9,8 @@ try {
         $length = (($f | get-view).ChildEntity.Length)
         if ($length -eq 0) {
             try {
+                $f | remove-folder -DeletePermanently -Confirm:$false
+
                 $tag = Get-Tag -Name $f.Name
                 $tc = Get-TagCategory -Name $tag.Category
 
@@ -16,7 +18,6 @@ try {
 
                 $tag | Remove-Tag -Confirm:$False
                 $tc | Remove-TagCategory -Confirm:$False
-                $f | remove-folder -DeletePermanently -Confirm:$false
             }
             catch{}
         }
