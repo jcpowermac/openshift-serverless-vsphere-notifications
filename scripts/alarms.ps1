@@ -31,7 +31,7 @@ finally {
 
 # Get VCSA health
 try {
-    Connect-CisServer -Server $global:DefaultVIServer.Name -Credential (Import-Clixml $Env:VCENTER_SECRET_PATH) | Out-Null
+    Connect-CisServer -Server $Env:VCENTER_URI -Credential (Import-Clixml $Env:VCENTER_SECRET_PATH) | Out-Null
     if (Invoke-GetHealthSystem -ne "green") {
         Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ":fire: Check VCSA: $($global:DefaultVIServer.Name)"
     }

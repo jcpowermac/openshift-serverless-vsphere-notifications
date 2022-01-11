@@ -46,7 +46,6 @@ catch {
     exit 1
 }
 finally {
-
     Disconnect-VIServer -Server * -Force:$true -Confirm:$false
 }
 
