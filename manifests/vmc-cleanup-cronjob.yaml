@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vmc-slack-vsphere-cleanup-notification
+spec:
+  concurrencyPolicy: Forbid
+  schedule: "0 0 */7 * *"
+  failedJobsHistoryLimit: 1
+  successfulJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          containers:
+          - name: notification
+            volumeMounts:
+            - name: vcenter-credential
+              mountPath: /var/run/secret/vcenter
+              readOnly: true
+            env:
+            - name: VCENTER_SECRET_PATH
+              value: /var/run/secret/vcenter/creds.xml
+            - name: VCENTER_URI
+              value: "vcenter.sddc-44-236-21-251.vmwarevmc.com"
+            - name: SLACK_WEBHOOK_URI
+              valueFrom:
+                secretKeyRef:
+                  name: slack-webhook-uri
+                  key: uri
+            image: quay.io/jcallen/vsphere-slack-notify:latest
+            imagePullPolicy: Always
+            args:
+            - /bin/pwsh
+            - -File
+            - /projects/cleanup.ps1
+          restartPolicy: Never
+          volumes:
+          - name: vcenter-credential
+            secret:
+              secretName: vmc-vcenter-credential
