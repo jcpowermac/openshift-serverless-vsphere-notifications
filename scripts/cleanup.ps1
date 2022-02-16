@@ -33,6 +33,19 @@ try {
 		    remove-resourcepool -ResourcePool $rp -Confirm:$false
         }
     }
+
+	$dday = (get-date).AddDays(-2)
+
+	$kubevols = get-childitem (Get-Datastore $Env:KUBEVOL_DATASTORE).DatastoreBrowserPath | Where-Object -Property FriendlyName -eq "kubevols"
+
+	$children = get-childitem $kubevols.FullName | Where-Object -Property LastWriteTime -lt $dday
+
+	foreach ($child in $children) {
+        if($child.Name.StartsWith("ci-")) {
+                Write-Output "$($child.Name) $($child.LastWriteTime)"
+                Remove-Item -Confirm:$false $child.FullName
+        }
+	}
 }
 catch {
     Get-Error
