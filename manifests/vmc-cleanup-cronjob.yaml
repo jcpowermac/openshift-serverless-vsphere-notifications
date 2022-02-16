@@ -23,6 +23,8 @@ spec:
               value: /var/run/secret/vcenter/creds.xml
             - name: VCENTER_URI
               value: "vcenter.sddc-44-236-21-251.vmwarevmc.com"
+            - name: KUBEVOL_DATASTORE
+              value: "WorkloadDatastore"
             - name: SLACK_WEBHOOK_URI
               valueFrom:
                 secretKeyRef:

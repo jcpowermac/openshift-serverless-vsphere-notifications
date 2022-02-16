@@ -27,6 +27,8 @@ spec:
               value: /var/run/secret/vcenter/creds.xml
             - name: VCENTER_URI
               value: "vcs8e-vc.ocp2.dev.cluster.com"
+            - name: KUBEVOL_DATASTORE
+              value: "vsanDatastore"
             - name: SLACK_WEBHOOK_URI
               valueFrom:
                 secretKeyRef:
