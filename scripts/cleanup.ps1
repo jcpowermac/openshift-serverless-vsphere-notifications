@@ -34,13 +34,13 @@ try {
         }
     }
 
-	$dday = (get-date).AddDays(-2)
+	$deleteday = (get-date).AddDays(-2)
 
     # delete kubevols
 
 	$kubevols = get-childitem (Get-Datastore $Env:KUBEVOL_DATASTORE).DatastoreBrowserPath | Where-Object -Property FriendlyName -eq "kubevols"
 
-	$children = get-childitem $kubevols.FullName | Where-Object -Property LastWriteTime -lt $dday
+	$children = get-childitem $kubevols.FullName | Where-Object -Property LastWriteTime -lt $deleteday
 
 	foreach ($child in $children) {
         if($child.Name.StartsWith("ci-")) {
