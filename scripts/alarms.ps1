@@ -14,16 +14,16 @@ try {
         $entity = Get-View -Id $as.Entity
 
         if ($as.OverallStatus -eq "red") {
-            if(!($header)) {
+            if (!($header)) {
                 Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text "***** Alarms: $($Env:VCENTER_URI) *****"
                 $header = $true
             }
             Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ":fire: $($entity.Name): $($alarm.Info.Name)"
         }
         # To lower the amount of alerts run only every 8 hours
-        if (((get-date -Format HH) % 8) -eq 0) {
+        if (((Get-Date -Format HH) % 8) -eq 0) {
             if ($as.OverallStatus -eq "yellow") {
-                if(!($header)) {
+                if (!($header)) {
                     Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text "***** Alarms: $($Env:VCENTER_URI) *****"
                     $header = $true
                 }

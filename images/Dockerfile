@@ -13,6 +13,8 @@ RUN mkdir /projects ${HOME} && \
 ADD scripts/* /projects/
 ADD entrypoint.sh /
 
+RUN RUN curl -L -o - "https://github.com/vmware/govmomi/releases/latest/download/govc_$(uname -s)_$(uname -m).tar.gz" | tar -C /bin -xvzf - govc
+
 RUN export POWERSHELL_TELEMETRY_OPTOUT=1 && \
 	pwsh -NoLogo -NoProfile -Command " \
           \$ErrorActionPreference = 'Stop' ; \
