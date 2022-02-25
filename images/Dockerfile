@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/powershell:centos-8
+FROM mcr.microsoft.com/powershell:fedora-34
 
 RUN dnf upgrade --refresh -y
 
