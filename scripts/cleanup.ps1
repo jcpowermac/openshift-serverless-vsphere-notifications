@@ -39,7 +39,7 @@ try {
 
     $deleteday = (Get-Date).AddDays(-4)
 
-    # delete kubevols
+    # Delete Kubevols
 
     $kubevols = Get-ChildItem (Get-Datastore $Env:KUBEVOL_DATASTORE).DatastoreBrowserPath | Where-Object -Property FriendlyName -EQ "kubevols"
 
@@ -52,12 +52,16 @@ try {
         }
     }
 
+    # Delete Storage Policies
+
 
     $storagePolicies = (Get-SpbmStoragePolicy | Where-Object -Property Name -Like "*ci*" | Where-Object -Property CreationTime -LT $deleteday )
 
     foreach ($policy in $storagePolicies) {
         Remove-SpbmStoragePolicy -StoragePolicy $policy -Confirm:$false
     }
+
+    # Delete CNS Volumes
 
     # VMware is why we can't have nice things
     # This cmdlet is broke
