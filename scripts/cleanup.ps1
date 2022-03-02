@@ -37,7 +37,7 @@ try {
         }
     }
 
-    $deleteday = (Get-Date).AddDays(-2)
+    $deleteday = (Get-Date).AddDays(-4)
 
     # delete kubevols
 
