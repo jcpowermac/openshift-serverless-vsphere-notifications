@@ -27,7 +27,7 @@ try {
             catch {}
         }
     }
-    $resourcePools = Get-ResourcePool | Where-Object { $_.Name -match 'ci' }
+    $resourcePools = Get-ResourcePool | Where-Object { $_.Name -match '^ci*' }
 
     foreach ($rp in $resourcePools) {
         [array]$resourcePoolVirtualMachines = $rp | Get-VM
