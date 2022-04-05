@@ -24,7 +24,7 @@ RUN export POWERSHELL_TELEMETRY_OPTOUT=1 && \
           Install-Module -Scope AllUsers VMware.PowerCLI ; \
           Set-PowerCLIConfiguration -Scope AllUsers -ParticipateInCeip:\$false -Confirm:\$false"
 
-RUN for f in "${HOME}"; do \
+RUN for f in "${HOME}" "/etc/hosts"; do \
       echo "Changing permissions on ${f}" && chgrp -R 0 ${f} && \
       chmod -R g+rwX ${f}; \
     done
