@@ -3,6 +3,8 @@
 
 try {
 
+    $debugVirtualMachines = @()
+
     Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false | Out-Null
 
     Connect-VIServer -Server $Env:VCENTER_URI -Credential (Import-Clixml $Env:VCENTER_SECRET_PATH) | Out-Null
@@ -39,6 +41,14 @@ try {
     if ($fire) {
         $message += " *Cluster CPU: $($ClusterPercentage)*"
         Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $message
+    }
+
+    # CI has moved virtual machines to the debug folder we better take a look
+    $debugVirtualMachines = @(Get-VM -Location (Get-Folder debug) | Select-Object -ExpandProperty Name)
+
+    if($debugVirtualMachines.Count -gt 0) {
+        $debugVMSlackMsg = ":fire: VMs in debug folder: $($debugVirtualMachines -join ',')"
+        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $debugVMSlackMsg
     }
 }
 catch {
