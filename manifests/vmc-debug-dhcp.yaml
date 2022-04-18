@@ -1,0 +1,56 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vmc-slack-vsphere-debug-dhcp-notification
+  namespace: vsphere-alerts
+spec:
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          containers:
+          - args:
+            - /bin/pwsh
+            - -File
+            - /projects/debug.ps1
+            env:
+            - name: VCENTER_SECRET_PATH
+              value: /var/run/secret/vcenter/creds.xml
+            - name: VCENTER_URI
+              value: vcenter.sddc-44-236-21-251.vmwarevmc.com
+            - name: SLACK_WEBHOOK_URI
+              valueFrom:
+                secretKeyRef:
+                  key: uri
+                  name: slack-webhook-uri
+            image: quay.io/jcallen/vsphere-slack-notify:latest
+            imagePullPolicy: Always
+            name: notification
+            resources: {}
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /var/run/secret/vcenter
+              name: vcenter-credential
+              readOnly: true
+            - name: debug-dhcp
+              mountPath: /var/log/debug
+          dnsPolicy: ClusterFirst
+          restartPolicy: Never
+          schedulerName: default-scheduler
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+          volumes:
+          - name: vcenter-credential
+            secret:
+              defaultMode: 420
+              secretName: vmc-vcenter-credential
+          - name: debug-dhcp
+            persistentVolumeClaim:
+              claimName: debug-dhcp-pvc
+  schedule: '*/2 * * * *'
+  successfulJobsHistoryLimit: 1
+  suspend: false
