@@ -13,12 +13,10 @@ try {
 
     if ($?) {
        Get-VM -Location $debugFolder | %{
-           Get-ViEvents -Entity $_ >> "/var/log/debug/$($_.Name).txt"
+           $events = Get-ViEvents -Entity $_
+           $events
+           $events >> "/var/log/debug/$($_.Name).txt"
        }
-
-
-
-
 
        # if($debugVirtualMachines.Count -gt 0) {
        #     $debugVMSlackMsg = ":fire: VMs in debug folder: $($debugVirtualMachines -join ',')"

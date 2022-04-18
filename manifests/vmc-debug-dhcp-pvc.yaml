@@ -1,9 +1,12 @@
 kind: PersistentVolumeClaim
 metadata:
   name: debug-dhcp-pvc
+  namespace: vsphere-alerts
 spec:
+  storageClassName: gp3-csi
+  volumeMode: Filesystem
   accessModes:
-    - ReadWriteOnce
+  - ReadWriteOnce
   resources:
     requests:
-      storage: 1Gi
+      storage: 20Gi
