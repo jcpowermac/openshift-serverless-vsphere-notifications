@@ -14,8 +14,9 @@ try {
     if ($?) {
        Get-VM -Location $debugFolder | %{
            $events = Get-VIEvent -Entity $_
-           $events
            $events >> "/var/log/debug/$($_.Name).txt"
+
+           $events | Select-Object -Property FullFormattedMessage
        }
 
        # if($debugVirtualMachines.Count -gt 0) {
