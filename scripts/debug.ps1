@@ -13,7 +13,7 @@ try {
 
     if ($?) {
        Get-VM -Location $debugFolder | %{
-           $events = Get-ViEvents -Entity $_
+           $events = Get-VIEvent -Entity $_
            $events
            $events >> "/var/log/debug/$($_.Name).txt"
        }
