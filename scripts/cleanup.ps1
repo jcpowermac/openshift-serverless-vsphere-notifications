@@ -12,6 +12,11 @@ try {
     $folders = Get-Folder | Where-Object { $_.IsChildTypeVm -eq $true }
     foreach ($f in $folders) {
         $length = (($f | Get-View).ChildEntity.Length)
+
+        if ($f.Name -eq "debug") {
+            continue
+        }
+
         if ($length -eq 0) {
             try {
                 $f | Remove-Folder -DeletePermanently -Confirm:$false
