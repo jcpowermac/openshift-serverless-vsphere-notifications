@@ -1,0 +1,66 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  annotations:
+  name: vmc-slack-vsphere-cleanup-kubevols-notification
+  namespace: vsphere-alerts
+spec:
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          containers:
+          - args:
+            - /bin/pwsh
+            - -File
+            - /projects/cleanup-kubevols.ps1
+            env:
+            - name: KUBEVOL_DATASTORE
+              value: WorkloadDatastore
+            - name: GOVC_DATACENTER
+              value: SDDC-Datacenter
+            - name: GOVC_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: vmc-govc-credential
+            - name: GOVC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: vmc-govc-credential
+            - name: VCENTER_SECRET_PATH
+              value: /var/run/secret/vcenter/creds.xml
+            - name: VCENTER_URI
+              value: vcenter.sddc-44-236-21-251.vmwarevmc.com
+            - name: SLACK_WEBHOOK_URI
+              valueFrom:
+                secretKeyRef:
+                  key: uri
+                  name: slack-webhook-uri
+            image: quay.io/jcallen/vsphere-slack-notify:latest
+            imagePullPolicy: Always
+            name: notification
+            resources: {}
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /var/run/secret/vcenter
+              name: vcenter-credential
+              readOnly: true
+          dnsPolicy: ClusterFirst
+          restartPolicy: Never
+          schedulerName: default-scheduler
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+          volumes:
+          - name: vcenter-credential
+            secret:
+              defaultMode: 420
+              secretName: vmc-vcenter-credential
+  schedule: 0 0 */3 * *
+  successfulJobsHistoryLimit: 1
+  suspend: false
