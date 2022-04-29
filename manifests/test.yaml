@@ -27,30 +27,12 @@ spec:
         - -Command
         - Get-Content /dev/null -Wait
         env:
-        - name: VCENTER_SECRET_PATH
-          value: /var/run/secret/vcenter/creds.xml
-        - name: VCENTER_URI
-          value: ibmvcenter.vmc-ci.devcluster.openshift.com
-        - name: KUBEVOL_DATASTORE
-          value: vsanDatastore
-        - name: GOVC_DATACENTER
-          value: IBMCloud
-        - name: GOVC_USERNAME
-          valueFrom:
-            secretKeyRef:
-              key: username
-              name: ibm-govc-credential
-        - name: GOVC_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: password
-              name: ibm-govc-credential
         - name: SLACK_WEBHOOK_URI
           valueFrom:
             secretKeyRef:
               key: uri
               name: slack-webhook-uri
-        image: image-registry.openshift-image-registry.svc:5000/vsphere-alerts/vsphere-tools:latest
+        image: quay.io/jcallen/vsphere-slack-notify:latest
         imagePullPolicy: Always
         name: powershell
         resources: {}
@@ -58,7 +40,10 @@ spec:
         terminationMessagePolicy: File
         volumeMounts:
         - mountPath: /var/run/secret/vcenter
-          name: vcenter-credential
+          name: vcenter-credentials
+          readOnly: true
+        - mountPath: /var/run/config/vcenter
+          name: vcenter-configs
           readOnly: true
       dnsPolicy: ClusterFirst
       hostAliases:
@@ -70,7 +55,10 @@ spec:
       securityContext: {}
       terminationGracePeriodSeconds: 30
       volumes:
-      - name: vcenter-credential
+      - name: vcenter-credentials
         secret:
           defaultMode: 420
-          secretName: ibm-vcenter-credential
+          secretName: vcenter-credentials
+      - name: vcenter-configs
+        configMap:
+          name: vcenter-configs
