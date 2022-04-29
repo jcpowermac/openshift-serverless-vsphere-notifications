@@ -1,5 +1,7 @@
 #!/bin/pwsh
 
+. /var/run/config/vcenter/variables.ps1
+
 Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false | Out-Null
 
 $cihash = ConvertFrom-Json -InputObject $ci -AsHashtable
