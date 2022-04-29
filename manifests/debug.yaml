@@ -1,0 +1,48 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: debug
+  namespace: vsphere-alerts
+spec:
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          containers:
+          - args:
+            - /bin/pwsh
+            - -File
+            - /projects/debug.ps1
+            env:
+            - name: SLACK_WEBHOOK_URI
+              valueFrom:
+                secretKeyRef:
+                  key: uri
+                  name: slack-webhook-uri
+            image: quay.io/jcallen/vsphere-slack-notify:latest
+            imagePullPolicy: Always
+            name: powershell-scripts
+            volumeMounts:
+            - mountPath: /var/run/secret/vcenter
+              name: vcenter-credentials
+              readOnly: true
+            - mountPath: /var/run/config/vcenter
+              name: vcenter-configs
+              readOnly: true
+          hostAliases:
+          - hostnames:
+            - vcs8e-vc.ocp2.dev.cluster.com
+            ip: 192.168.133.73
+          volumes:
+          - name: vcenter-credentials
+            secret:
+              defaultMode: 420
+              secretName: vcenter-credentials
+          - name: vcenter-configs
+            configMap:
+              name: vcenter-configs
+  schedule: 0 0 */3 * *
+  successfulJobsHistoryLimit: 1

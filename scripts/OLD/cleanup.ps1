@@ -4,6 +4,7 @@ $Env:GOVC_URL = $Env:VCENTER_URI
 $Env:GOVC_INSECURE = 1
 
 try {
+    $deleteday = (Get-Date).AddDays(-4)
     Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text "Cleaning: $($Env:VCENTER_URI)"
 
     Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false | Out-Null
@@ -32,30 +33,7 @@ try {
             catch {}
         }
     }
-    $resourcePools = Get-ResourcePool | Where-Object { $_.Name -match '^ci*' }
 
-    foreach ($rp in $resourcePools) {
-        [array]$resourcePoolVirtualMachines = $rp | Get-VM
-        if ($resourcePoolVirtualMachines.Length -eq 0) {
-            Write-Host "Remove RP: $($rp.Name)"
-            Remove-ResourcePool -ResourcePool $rp -Confirm:$false
-        }
-    }
-
-    $deleteday = (Get-Date).AddDays(-4)
-
-    # Delete Kubevols
-
-    $kubevols = Get-ChildItem (Get-Datastore $Env:KUBEVOL_DATASTORE).DatastoreBrowserPath | Where-Object -Property FriendlyName -EQ "kubevols"
-
-    $children = Get-ChildItem $kubevols.FullName | Where-Object -Property LastWriteTime -LT $deleteday
-
-    foreach ($child in $children) {
-        if ($child.Name.StartsWith("ci-")) {
-            Write-Output "$($child.Name) $($child.LastWriteTime)"
-            Remove-Item -Confirm:$false $child.FullName
-        }
-    }
 
     # Delete Storage Policies
 
@@ -76,14 +54,12 @@ try {
     $govcError = "./govcerror.txt"
     $process = Start-Process -Wait -RedirectStandardError $govcError -RedirectStandardOutput $govcOutput -FilePath /bin/govc -ArgumentList @("volume.ls", "-json", "-ds $($Env:KUBEVOL_DATASTORE)") -PassThru
 
-
-
     if ($process.ExitCode -eq 0) {
         $volumeHash = (Get-Content -Path $govcOutput | ConvertFrom-Json -AsHashtable)
         foreach ($vol in $volumeHash["Volume"]) {
             $volumeId = $vol["VolumeId"]["Id"]
             $clusterId = $vol["Metadata"]["ContainerCluster"]["ClusterId"]
-            $clusterInventory = Get-Inventory -Name $clusterId
+            $clusterInventory = Get-Inventory -Name $clusterId -ErrorAction Continue
 
             if ($clusterInventory.Count -eq 0) {
                 Start-Process -Wait -FilePath /bin/govc -ArgumentList @("volume.rm", $volumeId)

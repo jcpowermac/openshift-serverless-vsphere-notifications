@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: powershell-testing
+  namespace: vsphere-alerts
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: powershell-testing
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: powershell-testing
+    spec:
+      containers:
+      - args:
+        - /bin/pwsh
+        - -Command
+        - Get-Content /dev/null -Wait
+        env:
+        - name: VCENTER_SECRET_PATH
+          value: /var/run/secret/vcenter/creds.xml
+        - name: VCENTER_URI
+          value: ibmvcenter.vmc-ci.devcluster.openshift.com
+        - name: KUBEVOL_DATASTORE
+          value: vsanDatastore
+        - name: GOVC_DATACENTER
+          value: IBMCloud
+        - name: GOVC_USERNAME
+          valueFrom:
+            secretKeyRef:
+              key: username
+              name: ibm-govc-credential
+        - name: GOVC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: ibm-govc-credential
+        - name: SLACK_WEBHOOK_URI
+          valueFrom:
+            secretKeyRef:
+              key: uri
+              name: slack-webhook-uri
+        image: image-registry.openshift-image-registry.svc:5000/vsphere-alerts/vsphere-tools:latest
+        imagePullPolicy: Always
+        name: powershell
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/run/secret/vcenter
+          name: vcenter-credential
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      hostAliases:
+      - hostnames:
+        - vcs8e-vc.ocp2.dev.cluster.com
+        ip: 192.168.133.73
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: vcenter-credential
+        secret:
+          defaultMode: 420
+          secretName: ibm-vcenter-credential
