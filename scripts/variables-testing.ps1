@@ -10,14 +10,13 @@ foreach ($key in $cihash.Keys) {
         Get-VM
         Get-Datastore -Name $cihash[$key].datastore
         Get-Datacenter -Name $cihash[$key].datacenter
-        Get-Cluster -Name $cihash[$key].datacenter
+        Get-Cluster -Name $cihash[$key].cluster
     }
     catch {
         Get-Error
         exit 1
     }
     finally {
-        #Disconnect-CisServer -Server * -Force:$true -Confirm:$false
         Disconnect-VIServer -Server * -Force:$true -Confirm:$false
     }
 }
