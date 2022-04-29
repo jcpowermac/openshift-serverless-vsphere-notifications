@@ -2,6 +2,8 @@
 
 Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false | Out-Null
 
+$cihash = ConvertFrom-Json -InputObject $ci -AsHashtable
+
 foreach ($key in $cihash.Keys) {
     $cihash[$key].vcenter
     try {
