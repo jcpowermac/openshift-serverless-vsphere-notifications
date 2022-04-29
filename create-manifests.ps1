@@ -26,6 +26,7 @@ spec:
       backoffLimit: 2
       template:
         spec:
+          restartPolicy: Never
           containers:
           - args:
             - /bin/pwsh

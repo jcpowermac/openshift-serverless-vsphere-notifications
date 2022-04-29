@@ -12,7 +12,6 @@ VM(s): {1}
 foreach ($key in $cihash.Keys) {
     try {
         Connect-VIServer -Server $cihash[$key].vcenter -Credential (Import-Clixml $cihash[$key].secret) | Out-Null
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter)
 
         $debugVirtualMachines = @(Get-VM -Location (Get-Folder debug) | Select-Object -ExpandProperty Name)
 
