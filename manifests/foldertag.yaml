@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: debug
+  name: foldertag
   namespace: vsphere-alerts
 spec:
   concurrencyPolicy: Forbid
@@ -16,7 +16,7 @@ spec:
           - args:
             - /bin/pwsh
             - -File
-            - /projects/debug.ps1
+            - /projects/foldertag.ps1
             env:
             - name: SLACK_WEBHOOK_URI
               valueFrom:

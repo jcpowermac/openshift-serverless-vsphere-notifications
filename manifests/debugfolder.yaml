@@ -45,5 +45,5 @@ spec:
           - name: vcenter-configs
             configMap:
               name: vcenter-configs
-  schedule: "*/30 * * * *"
+  schedule: 0 0 */3 * *
   successfulJobsHistoryLimit: 1
