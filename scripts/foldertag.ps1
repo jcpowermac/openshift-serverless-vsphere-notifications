@@ -6,10 +6,11 @@ $cihash = ConvertFrom-Json -InputObject $ci -AsHashtable
 $slackMessage = @"
 Removing Folders and Tags
 vcenter: {0}
+folders: {1}
+tags: {2}
 "@
 
-$deleteday = (Get-Date).AddDays(-4)
-
+$tagCatToRemove = @()
 foreach ($key in $cihash.Keys) {
     $cihash[$key].vcenter
     $cihash[$key].datacenter
@@ -18,9 +19,14 @@ foreach ($key in $cihash.Keys) {
 
     try {
         Connect-VIServer -Server $cihash[$key].vcenter -Credential (Import-Clixml $cihash[$key].secret) | Out-Null
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter)
 
+        Write-Host "Get-TagAssignment is slow..."
+        $tagAssignments = @(Get-TagAssignment)
+        $tags = @(Get-Tag | Where-Object { $_.Name -match '^ci*|^qeci*' })
         $folders = Get-Folder | Where-Object { $_.IsChildTypeVm -eq $true }
+
+        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $folders.Length, $tags.Length)
+
         foreach ($f in $folders) {
             $length = (($f | Get-View).ChildEntity.Length)
 
@@ -29,19 +35,19 @@ foreach ($key in $cihash.Keys) {
             }
 
             if ($length -eq 0) {
-                try {
-                    $f | Remove-Folder -DeletePermanently -Confirm:$false
-
-                    $tag = Get-Tag -Name $f.Name
-                    $tc = Get-TagCategory -Name $tag.Category
-
-                    Write-Host "Removing Tag: $($tag.Name), Removing TagCategory: $($tc.Name), Remove Folder: $($f.Name)"
-
-                    $tag | Remove-Tag -Confirm:$False -ErrorAction Continue
-                    $tc | Remove-TagCategory -Confirm:$False -ErrorAction Continue
-                }
-                catch {}
+                $f | Remove-Folder -DeletePermanently -Confirm:$false -ErrorAction Continue
             }
+        }
+
+        foreach ($tag in $tags) {
+            $selectedAssignment = @($tagAssignments | Where-Object { $_.Tag.Name -eq $tag.Name })
+            if ( $selectedAssignment -le 1) {
+                Remove-Tag -Tag $tag -Confirm:$false -ErrorAction Continue
+                $tagCatToRemove += $tag.Category
+            }
+        }
+        foreach ($tagCat in $tagCatToRemove) {
+            Remove-TagCategory -Category $tagCat -Confirm:$false -ErrorAction Continue
         }
     }
     catch {
