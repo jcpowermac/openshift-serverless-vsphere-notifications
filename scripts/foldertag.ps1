@@ -44,12 +44,12 @@ foreach ($key in $cihash.Keys) {
         foreach ($tag in $tags) {
             $selectedAssignment = @($tagAssignments | Where-Object { $_.Tag.Name -eq $tag.Name })
             $selectedVirtualMachines = @($virtualMachines | Where-Object {$_.Name.StartsWith($tag.Name)})
-            if ( $selectedAssignment -le 1) {
+            if ( $selectedAssignment.Count -le 1) {
                 Remove-Tag -Tag $tag -Confirm:$false -ErrorAction Continue
                 $tagCatToRemove += $tag.Category
             }
 
-            if($selectedVirtualMachines -eq 0) {
+            if($selectedVirtualMachines.Count -eq 0) {
                 Remove-Tag -Tag $tag -Confirm:$false -ErrorAction Continue
                 $tagCatToRemove += $tag.Category
             }
