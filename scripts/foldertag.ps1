@@ -38,6 +38,7 @@ foreach ($key in $cihash.Keys) {
             }
 
             if ($length -eq 0) {
+                $f.Name
                 $f | Remove-Folder -DeletePermanently -Confirm:$false -ErrorAction Continue
             }
         }
