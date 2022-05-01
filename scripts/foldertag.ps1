@@ -11,7 +11,8 @@ tags: {2}
 "@
 
 foreach ($key in $cihash.Keys) {
-    $tagCatToRemove = @()
+    $tagCategoriesToRemove = @{}
+    $tagsToRemove = @{}
     $cihash[$key].vcenter
     $cihash[$key].datacenter
     $cihash[$key].cluster
@@ -22,7 +23,7 @@ foreach ($key in $cihash.Keys) {
 
         Write-Host "Get-TagAssignment is slow..."
         # Looks like this doesn't work in VMC
-        $tagAssignments = @(Get-TagAssignment -ErrorAction Continue)
+        #$tagAssignments = @(Get-TagAssignment -ErrorAction Continue)
         $tags = @(Get-Tag | Where-Object { $_.Name -match '^ci*|^qeci*' })
         $folders = @(Get-Folder | Where-Object { $_.IsChildTypeVm -eq $true })
         $virtualMachines = @(Get-VM | Where-Object { $_.Name -match '^ci*|^qeci*' })
@@ -42,20 +43,38 @@ foreach ($key in $cihash.Keys) {
         }
 
         foreach ($tag in $tags) {
-            $selectedAssignment = @($tagAssignments | Where-Object { $_.Tag.Name -eq $tag.Name })
+            #$selectedAssignment = @($tagAssignments | Where-Object { $_.Tag.Name -eq $tag.Name })
+
             $selectedVirtualMachines = @($virtualMachines | Where-Object {$_.Name.StartsWith($tag.Name)})
-            if ( $selectedAssignment.Count -le 1) {
-                Remove-Tag -Tag $tag -Confirm:$false -ErrorAction Continue
-                $tagCatToRemove += $tag.Category
-            }
+
+            # revisit this later...
+            # since in vmc we cannot get tag assignments this will always be 0
+
+            #if ( $selectedAssignment.Count -le 1) {
+            #    if(!$tagsToRemove.ContainsKey($tag.Name)) {
+            #        $tagsToRemove.Add($tag.Name, $tag)
+            #    }
+
+            #    if(!$tagCategoriesToRemove.ContainsKey($tag.Category.Name)) {
+            #        $tagCategoriesToRemove.Add($tag.Category.Name, $tag.Category)
+            #    }
+            #}
 
             if($selectedVirtualMachines.Count -eq 0) {
-                Remove-Tag -Tag $tag -Confirm:$false -ErrorAction Continue
-                $tagCatToRemove += $tag.Category
+                if(!$tagsToRemove.ContainsKey($tag.Name)) {
+                    $tagsToRemove.Add($tag.Name, $tag)
+                }
+                if(!$tagCategoriesToRemove.ContainsKey($tag.Category.Name)) {
+                    $tagCategoriesToRemove.Add($tag.Category.Name, $tag.Category)
+                }
             }
         }
-        foreach ($tagCat in $tagCatToRemove) {
-            Remove-TagCategory -Category $tagCat -Confirm:$false -ErrorAction Continue
+
+        foreach ($tagKey in $tagsToRemove.Keys) {
+            Remove-Tag -Tag $tagsToRemove[$tagKey] -Confirm:$false -ErrorAction Continue 
+        }
+        foreach ($tagCatKey in $tagCategoriesToRemove.Keys) {
+            Remove-TagCategory -Category $tagCategoriesToRemove[$tagCatKey] -Confirm:$false -ErrorAction Continue
         }
     }
     catch {
