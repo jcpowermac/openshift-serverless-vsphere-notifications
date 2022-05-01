@@ -1,30 +1,41 @@
 #!/bin/pwsh
 
-$Env:GOVC_URL = $Env:VCENTER_URI
-$Env:GOVC_INSECURE = 1
+. /var/run/config/vcenter/variables.ps1
 
-try {
-    Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text "Cleaning: $($Env:VCENTER_URI)"
+Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false | Out-Null
 
-    Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false | Out-Null
-    Connect-VIServer -Server $Env:VCENTER_URI -Credential (Import-Clixml $Env:VCENTER_SECRET_PATH) | Out-Null
+$cihash = ConvertFrom-Json -InputObject $ci -AsHashtable
 
-    $resourcePools = Get-ResourcePool | Where-Object { $_.Name -match '^ci*|^qeci*' }
+$slackMessage = @"
+Removing resource pools(s)
+vcenter: {0}
+rp: {1}
+"@
 
-    foreach ($rp in $resourcePools) {
-        [array]$resourcePoolVirtualMachines = $rp | Get-VM
-        if ($resourcePoolVirtualMachines.Length -eq 0) {
-            Write-Host "Remove RP: $($rp.Name)"
-            Remove-ResourcePool -ResourcePool $rp -Confirm:$false -ErrorAction Continue
+foreach ($key in $cihash.Keys) {
+    $cihash[$key].vcenter
+    try {
+
+        Connect-VIServer -Server $cihash[$key].vcenter -Credential (Import-Clixml $cihash[$key].secret) | Out-Null
+
+        $resourcePools = @(Get-ResourcePool | Where-Object { $_.Name -match '^ci*|^qeci*' })
+        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $resourcePools.Count)
+
+        foreach ($rp in $resourcePools) {
+            [array]$resourcePoolVirtualMachines = $rp | Get-VM
+            if ($resourcePoolVirtualMachines.Length -eq 0) {
+                Write-Host "Remove RP: $($rp.Name)"
+                Remove-ResourcePool -ResourcePool $rp -Confirm:$false -ErrorAction Continue
+            }
         }
     }
-}
-catch {
-    Get-Error
-    exit 1
-}
-finally {
-    Disconnect-VIServer -Server * -Force:$true -Confirm:$false
+    catch {
+        Get-Error
+        exit 1
+    }
+    finally {
+        Disconnect-VIServer -Server * -Force:$true -Confirm:$false
+    }
 }
 
 exit 0
