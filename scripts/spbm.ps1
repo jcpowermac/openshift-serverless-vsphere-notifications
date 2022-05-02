@@ -4,9 +4,12 @@
 Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false | Out-Null
 $cihash = ConvertFrom-Json -InputObject $ci -AsHashtable
 $slackMessage = @"
+Removing storage policies
 vcenter: {0}
+storage policies: {1}
 "@
 
+$deleteday = (Get-Date).AddDays(-4)
 foreach ($key in $cihash.Keys) {
     try {
         $cihash[$key].vcenter
@@ -15,7 +18,13 @@ foreach ($key in $cihash.Keys) {
         $cihash[$key].datastore
 
         Connect-VIServer -Server $cihash[$key].vcenter -Credential (Import-Clixml $cihash[$key].secret) | Out-Null
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter)
+
+        $storagePolicies = @(Get-SpbmStoragePolicy | Where-Object -Property Name -Like "*ci*" | Where-Object -Property CreationTime -LT $deleteday)
+        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $storagePolicies.Count)
+
+        foreach ($policy in $storagePolicies) {
+            Remove-SpbmStoragePolicy -StoragePolicy $policy -Confirm:$false -ErrorAction Continue
+        }
     }
     catch {
         Get-Error
