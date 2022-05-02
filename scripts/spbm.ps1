@@ -24,26 +24,30 @@ foreach ($key in $cihash.Keys) {
         Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $storagePolicies.Count)
 
         foreach ($policy in $storagePolicies) {
-            if($policy.Name.Contains("ci")) {
-                $policyToRemove.Add($policy.Name, $policy)
-            }
+            if ($policy.Name.Contains("ci")) {
+                if ($policyToRemove.ContainsKey($policy.Name)) {
+                        $policyToRemove.Add($policy.Name, $policy)
+                    }
+                }
 
-            foreach ($ruleset in $policy.AnyOfRuleSets) {
-                if($ruleset.AllOfRules.AnyOfTags.IsTagMissing) {
-                    $policyToRemove.Add($policy.Name, $policy)
+                foreach ($ruleset in $policy.AnyOfRuleSets) {
+                    if ($ruleset.AllOfRules.AnyOfTags.IsTagMissing) {
+                        if ($policyToRemove.ContainsKey($policy.Name)) {
+                                $policyToRemove.Add($policy.Name, $policy)
+                            }
+                        }
+                    }
+                }
+                foreach ($policyKey in $policyToRemove.Keys) {
+                    Remove-SpbmStoragePolicy -StoragePolicy $policyToRemove[$policyKey] -Confirm:$false -ErrorAction Continue
                 }
             }
+            catch {
+                Get-Error
+            }
+            finally {
+                Disconnect-VIServer -Server * -Force:$true -Confirm:$false
+            }
         }
-        foreach($policyKey in $policyToRemove.Keys) {
-            Remove-SpbmStoragePolicy -StoragePolicy $policyToRemove[$policyKey] -Confirm:$false -ErrorAction Continue
-        }
-    }
-    catch {
-        Get-Error
-    }
-    finally {
-        Disconnect-VIServer -Server * -Force:$true -Confirm:$false
-    }
-}
 
-exit 0
+        exit 0
