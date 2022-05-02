@@ -11,6 +11,7 @@ storage policies: {1}
 
 $deleteday = (Get-Date).AddDays(-4)
 foreach ($key in $cihash.Keys) {
+    $policyToRemove = @{}
     try {
         $cihash[$key].vcenter
         $cihash[$key].datacenter
@@ -19,11 +20,22 @@ foreach ($key in $cihash.Keys) {
 
         Connect-VIServer -Server $cihash[$key].vcenter -Credential (Import-Clixml $cihash[$key].secret) | Out-Null
 
-        $storagePolicies = @(Get-SpbmStoragePolicy | Where-Object -Property Name -Like "*ci*" | Where-Object -Property CreationTime -LT $deleteday)
+        $storagePolicies = @(Get-SpbmStoragePolicy | Where-Object -Property CreationTime -LT $deleteday)
         Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $storagePolicies.Count)
 
         foreach ($policy in $storagePolicies) {
-            Remove-SpbmStoragePolicy -StoragePolicy $policy -Confirm:$false -ErrorAction Continue
+            if($policy.Name.Contains("ci")) {
+                $policyToRemove.Add($policy.Name, $policy)
+            }
+
+            foreach ($ruleset in $policy.AnyOfRuleSets) {
+                if($ruleset.AllOfRules.AnyOfTags.IsTagMissing) {
+                    $policyToRemove.Add($policy.Name, $policy)
+                }
+            }
+        }
+        foreach($policyKey in $policyToRemove.Keys) {
+            Remove-SpbmStoragePolicy -StoragePolicy $policyToRemove[$policyKey] -Confirm:$false -ErrorAction Continue
         }
     }
     catch {
