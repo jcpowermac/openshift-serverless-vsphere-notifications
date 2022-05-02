@@ -25,14 +25,14 @@ foreach ($key in $cihash.Keys) {
 
         foreach ($policy in $storagePolicies) {
             if ($policy.Name.Contains("ci")) {
-                if ($policyToRemove.ContainsKey($policy.Name)) {
+                if (!$policyToRemove.ContainsKey($policy.Name)) {
                         $policyToRemove.Add($policy.Name, $policy)
                     }
                 }
 
                 foreach ($ruleset in $policy.AnyOfRuleSets) {
                     if ($ruleset.AllOfRules.AnyOfTags.IsTagMissing) {
-                        if ($policyToRemove.ContainsKey($policy.Name)) {
+                        if (!$policyToRemove.ContainsKey($policy.Name)) {
                                 $policyToRemove.Add($policy.Name, $policy)
                             }
                         }
