@@ -21,6 +21,12 @@ foreach ($key in $cihash.Keys) {
         }
     }
     catch {
+        $caught = Get-Error
+        $errStr = $caught.ToString()
+
+        $caught
+
+        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $errStr
         Get-Error
     }
     finally {

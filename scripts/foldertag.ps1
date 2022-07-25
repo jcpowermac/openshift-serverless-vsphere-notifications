@@ -72,14 +72,19 @@ foreach ($key in $cihash.Keys) {
         }
 
         foreach ($tagKey in $tagsToRemove.Keys) {
-            Remove-Tag -Tag $tagsToRemove[$tagKey] -Confirm:$false -ErrorAction Continue 
+            Remove-Tag -Tag $tagsToRemove[$tagKey] -Confirm:$false -ErrorAction Continue
         }
         foreach ($tagCatKey in $tagCategoriesToRemove.Keys) {
             Remove-TagCategory -Category $tagCategoriesToRemove[$tagCatKey] -Confirm:$false -ErrorAction Continue
         }
     }
     catch {
-        Get-Error
+        $caught = Get-Error
+        $errStr = $caught.ToString()
+
+        $caught
+
+        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $errStr
     }
     finally {
         Disconnect-VIServer -Server * -Force:$true -Confirm:$false
