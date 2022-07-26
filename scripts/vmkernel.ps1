@@ -17,9 +17,11 @@ Messages: {2}
 #$messages = @('lost connection','nfs','failure')
 $messages = @('lost connection')
 
-if (-not(Test-Path -Path "/var/run/secret/logs/old.log" -PathType Leaf)) {
-    $null = New-Item -ItemType File -Path "/var/run/secret/logs/old.log" -Force 
-}
+#if (-not(Test-Path -Path "/var/run/secret/logs/old.log" -PathType Leaf)) {
+#    $null = New-Item -ItemType File -Path "/var/run/secret/logs/old.log" -Force 
+#}
+
+ls -alh /var/run/secret/logs/
 
 foreach ($key in $cihash.Keys) {
     try {
@@ -52,7 +54,8 @@ foreach ($key in $cihash.Keys) {
         Get-Error
     }
     finally {
-        Move-Item -Force:$true -Confirm:$false -Path "/var/run/secret/logs/new.log" -Destination "/var/run/secret/logs/old.log"
+        Get-Content -Path "/var/run/secret/logs/new.log" -Raw | Set-Content -Path "/var/run/secret/logs/old.log"
+        #Move-Item -Force:$true -Confirm:$false -Path "/var/run/secret/logs/new.log" -Destination "/var/run/secret/logs/old.log"
         Disconnect-VIServer -Server * -Force:$true -Confirm:$false
     }
 }
