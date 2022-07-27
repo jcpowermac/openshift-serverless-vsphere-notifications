@@ -1,55 +1,57 @@
-apiVersion: batch/v1
-kind: CronJob
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: vmkernel
   namespace: vsphere-alerts
 spec:
-  concurrencyPolicy: Forbid
-  failedJobsHistoryLimit: 1
-  jobTemplate:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: vmkernel
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: vmkernel
     spec:
-      backoffLimit: 2
-      template:
-        spec:
-          restartPolicy: Never
-          containers:
-          - args:
-            - /bin/pwsh
-            - -File
-            - /projects/vmkernel.ps1
-            env:
-            - name: SLACK_WEBHOOK_URI
-              valueFrom:
-                secretKeyRef:
-                  key: uri
-                  name: slack-webhook-uri
-            image: quay.io/jcallen/vsphere-slack-notify:latest
-            imagePullPolicy: Always
-            name: powershell-scripts
-            volumeMounts:
-            - mountPath: /var/run/secret/vcenter
-              name: vcenter-credentials
-              readOnly: true
-            - mountPath: /var/run/secret/logs
-              name: hosts-log
-            - mountPath: /var/run/config/vcenter
-              name: vcenter-configs
-              readOnly: true
-          hostAliases:
-          - hostnames:
-            - vcs8e-vc.ocp2.dev.cluster.com
-            ip: 192.168.133.73
-          volumes:
-          - name: vcenter-credentials
-            secret:
-              defaultMode: 420
-              secretName: vcenter-credentials
-          - name: hosts-log 
-            secret:
-              defaultMode: 420
-              secretName: hosts-log 
-          - name: vcenter-configs
-            configMap:
-              name: vcenter-configs
-  schedule: 0 0 */3 * *
-  successfulJobsHistoryLimit: 1
+      restartPolicy: Never
+      containers:
+      - args:
+        - /bin/pwsh
+        - -File
+        - /projects/vmkernel.ps1
+        env:
+        - name: SLACK_WEBHOOK_URI
+          valueFrom:
+            secretKeyRef:
+              key: uri
+              name: slack-webhook-uri
+        image: quay.io/jcallen/vsphere-slack-notify:latest
+        imagePullPolicy: Always
+        name: powershell-scripts
+        volumeMounts:
+        - mountPath: /var/run/secret/vcenter
+          name: vcenter-credentials
+          readOnly: true
+        - mountPath: /var/run/config/vcenter
+          name: vcenter-configs
+          readOnly: true
+      hostAliases:
+      - hostnames:
+        - vcs8e-vc.ocp2.dev.cluster.com
+        ip: 192.168.133.73
+      volumes:
+      - name: vcenter-credentials
+        secret:
+          defaultMode: 420
+          secretName: vcenter-credentials
+      - name: vcenter-configs
+        configMap:
+          name: vcenter-configs
