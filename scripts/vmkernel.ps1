@@ -7,58 +7,62 @@ $cihash = ConvertFrom-Json -InputObject $ci -AsHashtable
 $slackMessage = @"
 vmkernel
 vcenter: {0}
-SideIndicator: {1}
-Messages: {2}
+host: {1}
+SideIndicator: {2}
+Messages: {3}
 "@
 
-$newFile = "/projects/new.log"
-$oldFile = "/projects/old.log"
-
-#$messages = @('lost connection','nfs','failure')
-$messages = @('lost connection')
-
-if (-not(Test-Path -Path $oldFile -PathType Leaf)) {
-    $null = New-Item -ItemType File -Path $oldFile -Force
-}
-
-
 while ($true) {
-    foreach ($key in $cihash.Keys) {
-        try {
-            $cihash[$key].vcenter
-            $cihash[$key].datacenter
-            $cihash[$key].cluster
-            $cihash[$key].datastore
+    $key = "ibm"
+    $cihash[$key].vcenter
+    $cihash[$key].datacenter
+    $cihash[$key].cluster
+    $cihash[$key].datastore
 
-            Connect-VIServer -Server $cihash[$key].vcenter -Credential (Import-Clixml $cihash[$key].secret) | Out-Null
+    Connect-VIServer -Server $cihash[$key].vcenter -Credential (Import-Clixml $cihash[$key].secret) | Out-Null
 
-            $hosts = Get-VMHost
+    $hosts = Get-VMHost
 
-            $hosts | ForEach-Object {
-                $entries = ($_ | Get-Log -Key "vmkernel" -StartLineNum 1 -NumLines 10000 ).Entries
+    $hosts | ForEach-Object {
+        $oldFile = "$($_.Id).old"
+        $newFile = "$($_.Id).new"
 
-                $messages | ForEach-Object {
-                    $entries -imatch $_ | Out-File -Append -FilePath $newFile
+        if (-not(Test-Path -Path $oldFile -PathType Leaf)) {
+            $null = New-Item -ItemType File -Path $oldFile -Force
+        }
+        $entries = ($_ | Get-Log -Key "vmkernel" -StartLineNum 1 -NumLines 10000 ).Entries
+
+        $lostConnection = $entries -imatch 'lost connection'
+
+        if ($lostConnection) {
+            $lostConnection | Out-File -FilePath $newFile
+
+            $oldContent = Get-Content $oldFile
+            if ($null -eq $oldContent ) {
+                $oldContent = ""
+            }
+
+            $compare = Compare-Object -ReferenceObject $oldContent -DifferenceObject (Get-Content $newFile)
+
+            Move-Item -Force:$true -Confirm:$false -Path $newFile -Destination $oldFile
+            if (Test-Path -Path $newFile -PathType Leaf) {
+                Remove-Item -Force:$true -Confirm:$false -Path $newFile
+            }
+            if ($null -ne $compare) {
+                $sideIndicator = ""
+                $inputObject = ""
+                $compare | ForEach-Object {
+                    $sideIndicator += $_.SideIndicator
+                    $inputObject += $_.InputObject
                 }
 
+                Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $_, $sideIndicator, $inputObject)
             }
-            $compare = Compare-Object -ReferenceObject (Get-Content $oldFile) -DifferenceObject (Get-Content $newFile)
-            if ($null -ne $compare) {
-                Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $compare.SideIndicator, $compare.InputObject)
-            }
-        }
-        catch {
-            Get-Error
-        }
-        finally {
-            Get-Content -Path $newFile -Raw | Set-Content -Path $oldFile
-            #Move-Item -Force:$true -Confirm:$false -Path "/var/run/secret/logs/new.log" -Destination "/var/run/secret/logs/old.log"
-            Disconnect-VIServer -Server * -Force:$true -Confirm:$false
         }
     }
 
-
+    Disconnect-VIServer -Server * -Force:$true -Confirm:$false
     Write-Host "Starting to sleep..."
 
-    Start-Sleep -Seconds 3600 
+    Start-Sleep -Seconds 3600
 }

@@ -21,7 +21,7 @@ spec:
       labels:
         app: vmkernel
     spec:
-      restartPolicy: Never
+      restartPolicy: Always
       containers:
       - args:
         - /bin/pwsh
