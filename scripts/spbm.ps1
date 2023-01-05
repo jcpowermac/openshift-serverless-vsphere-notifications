@@ -34,7 +34,7 @@ foreach ($key in $cihash.Keys) {
                 $clusterId = $splitResults[1]
                 if ($clusterId -ne "") {
                     Write-Host $clusterId
-                    $clusterInventory = @(Get-Inventory -Name $clusterId -ErrorAction Continue)
+                    $clusterInventory = @(Get-Inventory -Name "$($clusterId)*" -ErrorAction Continue)
 
                     if ($clusterInventory.Count -eq 0) {
                         Write-Host "Removing policy: $($policy.Name)"

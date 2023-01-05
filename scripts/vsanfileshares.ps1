@@ -30,7 +30,7 @@ foreach ($key in $cihash.Keys) {
             if ($splitResults.Count -eq 2) {
                 $clusterId = $splitResults[1]
                 if ($clusterId -ne "") {
-                    $clusterInventory = @(Get-Inventory -Name $clusterId -ErrorAction Continue)
+                    $clusterInventory = @(Get-Inventory -Name  "$($clusterId)*" -ErrorAction Continue)
                     Write-Host $clusterId
 
                     if ($clusterInventory.Count -eq 0) {
