@@ -22,7 +22,7 @@ foreach ($key in $cihash.Keys) {
 
         Connect-VIServer -Server $cihash[$key].vcenter -Credential (Import-Clixml $cihash[$key].secret) | Out-Null
 
-        $storagePolicies = Get-SpbmStoragePolicy 
+        $storagePolicies = Get-SpbmStoragePolicy
         Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $storagePolicies.Count)
 
         foreach ($policy in $storagePolicies) {
@@ -38,8 +38,8 @@ foreach ($key in $cihash.Keys) {
 
                     if ($clusterInventory.Count -eq 0) {
                         Write-Host "Removing policy: $($policy.Name)"
-                        $policy | Remove-SpbmStoragePolicy -Confirm:$false -Force:$true
-                    } 
+                        $policy | Remove-SpbmStoragePolicy -Confirm:$false
+                    }
                     else {
                         Write-Host "not deleting: $($clusterInventory)"
                     }
@@ -67,7 +67,7 @@ foreach ($key in $cihash.Keys) {
 
             #}
 
-        } 
+        }
     }
     catch {
         $caught = Get-Error
