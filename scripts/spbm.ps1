@@ -28,21 +28,23 @@ foreach ($key in $cihash.Keys) {
         foreach ($policy in $storagePolicies) {
 
             $clusterInventory = @()
-            $clusterId = ($policy.Name -split "openshift-storage-policy-")[1]
-            Write-Host $clusterId
+            $splitResults = @($policy.Name -split "openshift-storage-policy-")
 
-            if($clusterId -ne "") {
-                $clusterInventory = @(Get-Inventory -Name $clusterId -ErrorAction Continue)
+            if ($splitResults.Count -eq 2) {
+                $clusterId = $splitResults[1]
+                if ($clusterId -ne "") {
+                    Write-Host $clusterId
+                    $clusterInventory = @(Get-Inventory -Name $clusterId -ErrorAction Continue)
 
-                if ($clusterInventory.Count -eq 0) {
-                    Write-Host "Removing policy: $($policy.Name)"
-                    $policy | Remove-SpbmStoragePolicy -Confirm:$false -Force:$true
-                } 
-                else {
-                    Write-Host "not deleting: $($clusterInventory)"
+                    if ($clusterInventory.Count -eq 0) {
+                        Write-Host "Removing policy: $($policy.Name)"
+                        $policy | Remove-SpbmStoragePolicy -Confirm:$false -Force:$true
+                    } 
+                    else {
+                        Write-Host "not deleting: $($clusterInventory)"
+                    }
                 }
             }
-        }
 
 
             #if ($policy.Name.Contains("ci")) {
@@ -65,7 +67,8 @@ foreach ($key in $cihash.Keys) {
 
             #}
 
-    } 
+        } 
+    }
     catch {
         $caught = Get-Error
         $errStr = $caught.ToString()
@@ -76,5 +79,6 @@ foreach ($key in $cihash.Keys) {
         Disconnect-VIServer -Server * -Force:$true -Confirm:$false
     }
 }
+
 
 exit 0

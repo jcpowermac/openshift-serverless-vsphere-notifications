@@ -25,17 +25,21 @@ foreach ($key in $cihash.Keys) {
 
         foreach ($fs in $vsanFileShares) {
             $clusterInventory = @()
-            $clusterId = ($fs.StoragePolicy.Name -split "openshift-storage-policy-")[1]
-            if($clusterId -ne "") {
-                $clusterInventory = @(Get-Inventory -Name $clusterId -ErrorAction Continue)
-                Write-Host $clusterId
+            $splitResults = @($fs.StoragePolicy.Name -split "openshift-storage-policy-")
 
-                if ($clusterInventory.Count -eq 0) {
-                    Write-Host "Removing vSan File share: $($fs.Id)"
-                    $fs | Remove-VsanFileShare -Confirm:$false -Force:$true
-                }
-                else {
-                    Write-Host "not deleting: $($clusterInventory)"
+            if ($splitResults.Count -eq 2) {
+                $clusterId = $splitResults[1]
+                if ($clusterId -ne "") {
+                    $clusterInventory = @(Get-Inventory -Name $clusterId -ErrorAction Continue)
+                    Write-Host $clusterId
+
+                    if ($clusterInventory.Count -eq 0) {
+                        Write-Host "Removing vSan File share: $($fs.Id)"
+                        $fs | Remove-VsanFileShare -Confirm:$false -Force:$true
+                    }
+                    else {
+                        Write-Host "not deleting: $($clusterInventory)"
+                    }
                 }
             }
         }
