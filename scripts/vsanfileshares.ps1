@@ -24,9 +24,10 @@ foreach ($key in $cihash.Keys) {
 
 
         foreach ($fs in $vsanFileShares) {
+            $clusterInventory = @()
             $clusterId = ($fs.StoragePolicy.Name -split "openshift-storage-policy-")[1]
-            if(-not($clusterId)) {
-                $clusterInventory = Get-Inventory -Name $clusterId -ErrorAction Continue
+            if($clusterId -ne "") {
+                $clusterInventory = @(Get-Inventory -Name $clusterId -ErrorAction Continue)
                 Write-Host $clusterId
 
                 if ($clusterInventory.Count -eq 0) {
