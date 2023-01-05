@@ -9,9 +9,11 @@ vcenter: {0}
 storage policies: {1}
 "@
 
-$deleteday = (Get-Date).AddDays(-4)
+#$deleteday = (Get-Date).AddDays(-4)
 foreach ($key in $cihash.Keys) {
-    $policyToRemove = @{}
+    #$policyToRemove = @{}
+
+
     try {
         $cihash[$key].vcenter
         $cihash[$key].datacenter
@@ -20,37 +22,58 @@ foreach ($key in $cihash.Keys) {
 
         Connect-VIServer -Server $cihash[$key].vcenter -Credential (Import-Clixml $cihash[$key].secret) | Out-Null
 
-        $storagePolicies = @(Get-SpbmStoragePolicy | Where-Object -Property CreationTime -LT $deleteday)
+        $storagePolicies = Get-SpbmStoragePolicy 
         Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $storagePolicies.Count)
 
         foreach ($policy in $storagePolicies) {
-            if ($policy.Name.Contains("ci")) {
-                if (!$policyToRemove.ContainsKey($policy.Name)) {
-                        $policyToRemove.Add($policy.Name, $policy)
-                    }
-                }
 
-                foreach ($ruleset in $policy.AnyOfRuleSets) {
-                    if ($ruleset.AllOfRules.AnyOfTags.IsTagMissing) {
-                        if (!$policyToRemove.ContainsKey($policy.Name)) {
-                                $policyToRemove.Add($policy.Name, $policy)
-                            }
-                        }
-                    }
+            $clusterId = ($policy.Name -split "openshift-storage-policy-")[1]
+
+            if(-not($clusterId)) {
+                $clusterInventory = Get-Inventory -Name $clusterId -ErrorAction Continue
+                Write-Host $clusterId
+
+                if ($clusterInventory.Count -eq 0) {
+                    Write-Host "Removing vSan File share: $($fs.Id)"
+                    $fs | Remove-VsanFileShare -Confirm:$false -Force:$true
+                } 
+                else {
+                    Write-Host "not deleting: $($clusterInventory)"
                 }
-                foreach ($policyKey in $policyToRemove.Keys) {
-                    Remove-SpbmStoragePolicy -StoragePolicy $policyToRemove[$policyKey] -Confirm:$false -ErrorAction Continue
-                }
-            }
-            catch {
-                $caught = Get-Error
-                $errStr = $caught.ToString()
-                $caught
-                Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $errStr
-            }
-            finally {
-                Disconnect-VIServer -Server * -Force:$true -Confirm:$false
             }
         }
 
-        exit 0
+
+            #if ($policy.Name.Contains("ci")) {
+            #    if (!$policyToRemove.ContainsKey($policy.Name)) {
+            #            $policyToRemove.Add($policy.Name, $policy)
+            #        }
+            #    }
+
+            #    foreach ($ruleset in $policy.AnyOfRuleSets) {
+            #        if ($ruleset.AllOfRules.AnyOfTags.IsTagMissing) {
+            #            if (!$policyToRemove.ContainsKey($policy.Name)) {
+            #                    $policyToRemove.Add($policy.Name, $policy)
+            #                }
+            #            }
+            #        }
+            #    }
+            #    foreach ($policyKey in $policyToRemove.Keys) {
+            #        Remove-SpbmStoragePolicy -StoragePolicy $policyToRemove[$policyKey] -Confirm:$false -ErrorAction Continue
+            #    }
+
+            #}
+
+    } 
+    catch {
+        $caught = Get-Error
+        $errStr = $caught.ToString()
+        $caught
+        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $errStr
+    }
+    finally {
+        Disconnect-VIServer -Server * -Force:$true -Confirm:$false
+    }
+}
+
+exit 0
