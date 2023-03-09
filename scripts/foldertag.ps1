@@ -26,6 +26,7 @@ foreach ($key in $cihash.Keys) {
         #$tagAssignments = @(Get-TagAssignment -ErrorAction Continue)
         #$tags = @(Get-Tag | Where-Object { $_.Name -match '^ci*|^qeci*' })
         $tags = @(Get-Tag)
+        $tagCategories = @(Get-TagCategory)
         $folders = @(Get-Folder | Where-Object { $_.IsChildTypeVm -eq $true })
         $virtualMachines = @(Get-VM | Where-Object { $_.Name -match '^ci*|^qeci*' })
 
@@ -77,6 +78,15 @@ foreach ($key in $cihash.Keys) {
         }
         foreach ($tagCatKey in $tagCategoriesToRemove.Keys) {
             Remove-TagCategory -Category $tagCategoriesToRemove[$tagCatKey] -Confirm:$false -ErrorAction Continue
+        }
+
+
+        foreach($c in $tagCategories) {
+
+            $findTags = @(Get-tag -Category $c)
+            if($findTags.Count -eq 0) {
+                $c | Remove-TagCategory -Confirm:$false -ErrorAction Continue
+            }
         }
     }
     catch {
