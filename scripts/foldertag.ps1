@@ -46,6 +46,13 @@ foreach ($key in $cihash.Keys) {
         }
 
         foreach ($tag in $tags) {
+
+            # zonal tags
+            if($tag.Name.StartsWith("us-")) {
+                continue
+            }
+
+
             #$selectedAssignment = @($tagAssignments | Where-Object { $_.Tag.Name -eq $tag.Name })
 
             $selectedVirtualMachines = @($virtualMachines | Where-Object {$_.Name.StartsWith($tag.Name)})
@@ -82,7 +89,6 @@ foreach ($key in $cihash.Keys) {
 
 
         foreach($c in $tagCategories) {
-
             $findTags = @(Get-tag -Category $c)
             if($findTags.Count -eq 0) {
                 $c | Remove-TagCategory -Confirm:$false -ErrorAction Continue
