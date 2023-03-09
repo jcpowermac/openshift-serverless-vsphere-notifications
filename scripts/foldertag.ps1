@@ -24,7 +24,8 @@ foreach ($key in $cihash.Keys) {
         #Write-Host "Get-TagAssignment is slow..."
         # Looks like this doesn't work in VMC
         #$tagAssignments = @(Get-TagAssignment -ErrorAction Continue)
-        $tags = @(Get-Tag | Where-Object { $_.Name -match '^ci*|^qeci*' })
+        #$tags = @(Get-Tag | Where-Object { $_.Name -match '^ci*|^qeci*' })
+        $tags = @(Get-Tag)
         $folders = @(Get-Folder | Where-Object { $_.IsChildTypeVm -eq $true })
         $virtualMachines = @(Get-VM | Where-Object { $_.Name -match '^ci*|^qeci*' })
 
