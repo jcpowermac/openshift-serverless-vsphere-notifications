@@ -6,6 +6,8 @@ Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false | Out
 
 $cihash = ConvertFrom-Json -InputObject $ci -AsHashtable
 
+$today = Get-Date
+
 $slackMessage = @"
 Removing vmdk(s) from kubevols
 vcenter: {0}
@@ -46,8 +48,10 @@ foreach ($key in $cihash.Keys) {
 
         $kubevol = $dsBrowser.SearchDatastoreSubFolders($rootKubeVolPath, $searchSpec)
 
+        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $kubevol[0].File.length)
 
-        $kubevol[0].File | Where-Object -Property Path -like "*.vmdk" | % {
+
+        $kubevol[0].File | Where-Object -Property Path -like "*.vmdk" | ForEach-Object {
             $voldate = [DateTime]$_.Modification
 
             $span = New-TimeSpan -Start $voldate -End $today
@@ -66,7 +70,6 @@ foreach ($key in $cihash.Keys) {
         $caught
 
         Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $errStr
-        exit 1
     }
     finally {
         Disconnect-VIServer -Server * -Force:$true -Confirm:$false
