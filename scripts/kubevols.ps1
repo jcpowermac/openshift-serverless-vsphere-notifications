@@ -17,22 +17,45 @@ foreach ($key in $cihash.Keys) {
     try {
         Connect-VIServer -Server $cihash[$key].vcenter -Credential (Import-Clixml $cihash[$key].secret) | Out-Null
 
-        $deleteday = (Get-Date).AddDays(-4)
 
-        $kubevols = Get-ChildItem (Get-Datastore $cihash[$key].datastore).DatastoreBrowserPath | Where-Object -Property FriendlyName -EQ "kubevols"
-        $children = Get-ChildItem $kubevols.FullName | Where-Object -Property LastWriteTime -LT $deleteday
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $children.Length)
+        
+        $ds = Get-Datastore -Name Get-Datastore $cihash[$key].datastore
 
-        foreach ($child in $children) {
-            if ($child.Name.Contains("ci")) {
-                Write-Output "$($child.Name) $($child.LastWriteTime)"
-                Remove-Item -Confirm:$false $child.FullName -ErrorAction Continue
-            }
-        }
-        foreach ($child in $children) {
-            if ($child.Name.Contains("e2e")) {
-                Write-Output "$($child.Name) $($child.LastWriteTime)"
-                Remove-Item -Confirm:$false $child.FullName -ErrorAction Continue
+        $dsView = Get-View $ds.id
+
+        $dsBrowser = Get-View $dsView.browser
+
+        $flags = New-Object VMware.Vim.FileQueryFlags
+        $flags.FileSize = $true
+        $flags.FileType = $true
+        $flags.Modification = $true
+
+        $disk = New-Object VMware.Vim.VmDiskFileQuery
+        $disk.details = New-Object VMware.Vim.VmDiskFileQueryFlags
+        $disk.details.capacityKb = $true
+        $disk.details.diskExtents = $true
+        $disk.details.diskType = $true
+        $disk.details.thin = $true
+
+        $searchSpec = New-Object VMware.Vim.HostDatastoreBrowserSearchSpec
+        $searchSpec.details = $flags
+        $searchSpec.Query += $disk
+
+        $rootKubeVolPath = "[" + $ds.Name + "]/kubevols"
+
+
+        $kubevol = $dsBrowser.SearchDatastoreSubFolders($rootKubeVolPath, $searchSpec)
+
+
+        $kubevol[0].File | Where-Object -Property Path -like "*.vmdk" | % {
+            $voldate = [DateTime]$_.Modification
+
+            $span = New-TimeSpan -Start $voldate -End $today
+
+            if ($span.Days -ge 30) { 
+                $deletePath = "$($rootKubeVolPath)/$($_.Path)"
+                Write-Host "deleting $($deletePath)"
+                $dsBrowser.DeleteFile($deletePath)
             }
         }
     }
