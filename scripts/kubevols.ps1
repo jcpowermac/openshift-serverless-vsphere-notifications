@@ -19,7 +19,7 @@ foreach ($key in $cihash.Keys) {
 
 
         
-        $ds = Get-Datastore -Name Get-Datastore $cihash[$key].datastore
+        $ds = Get-Datastore $cihash[$key].datastore
 
         $dsView = Get-View $ds.id
 
