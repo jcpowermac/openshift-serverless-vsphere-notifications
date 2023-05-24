@@ -19,8 +19,6 @@ foreach ($key in $cihash.Keys) {
     try {
         Connect-VIServer -Server $cihash[$key].vcenter -Credential (Import-Clixml $cihash[$key].secret) | Out-Null
 
-
-        
         $ds = Get-Datastore $cihash[$key].datastore
 
         $dsView = Get-View $ds.id
@@ -45,21 +43,27 @@ foreach ($key in $cihash.Keys) {
 
         $rootKubeVolPath = "[" + $ds.Name + "]/kubevols"
 
-
         $kubevol = $dsBrowser.SearchDatastoreSubFolders($rootKubeVolPath, $searchSpec)
 
         Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $kubevol[0].File.length)
 
 
         $kubevol[0].File | Where-Object -Property Path -like "*.vmdk" | ForEach-Object {
-            $voldate = [DateTime]$_.Modification
+            try {
+                $voldate = [DateTime]$_.Modification
 
-            $span = New-TimeSpan -Start $voldate -End $today
+                $span = New-TimeSpan -Start $voldate -End $today
 
-            if ($span.Days -ge 30) { 
-                $deletePath = "$($rootKubeVolPath)/$($_.Path)"
-                Write-Host "deleting $($deletePath)"
-                $dsBrowser.DeleteFile($deletePath)
+                if ($span.Days -ge 21) {
+                    $deletePath = "$($rootKubeVolPath)/$($_.Path)"
+                    Write-Host "deleting $($deletePath)"
+                    $dsBrowser.DeleteFile($deletePath)
+                }
+            }
+            catch {
+                $caught = Get-Error
+                $errStr = $caught.ToString()
+                Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $errStr
             }
         }
     }
