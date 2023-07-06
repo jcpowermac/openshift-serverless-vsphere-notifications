@@ -31,7 +31,7 @@ foreach ($key in $cihash.Keys) {
 
         $caught
 
-        Send-SlackMessage -Color $_PSSlackColorMap.red -Uri $Env:SLACK_WEBHOOK_URI -Text $errStr
+        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $errStr
         exit 1
     }
     finally {
