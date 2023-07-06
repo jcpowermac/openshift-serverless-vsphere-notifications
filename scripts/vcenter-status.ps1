@@ -22,7 +22,8 @@ foreach ($key in $cihash.Keys) {
         $vm = Get-VM
         $tag = Get-Tag
 
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $vm.Count, $tag.Count)
+        # we don't need messages unless its broke...
+        #Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $vm.Count, $tag.Count)
 
     }
     catch {
