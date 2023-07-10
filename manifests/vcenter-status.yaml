@@ -1,0 +1,67 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vcenter-status
+  namespace: vsphere-alerts
+  labels:
+    jobgroup: parallel
+spec:
+  concurrencyPolicy: Allow
+  schedule: "*/5 * * * *"
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            jobgroup: parallel
+        spec:
+          topologySpreadConstraints:
+            - maxSkew: 2
+              topologyKey: kubernetes.io/hostname
+              whenUnsatisfiable: DoNotSchedule
+              labelSelector:
+                matchLabels:
+                  jobgroup: parallel
+          containers:
+          - args:
+            - /bin/pwsh
+            - -File
+            - /projects/vcenter-status.ps1
+            env:
+            - name: SLACK_WEBHOOK_URI
+              valueFrom:
+                secretKeyRef:
+                  key: uri
+                  name: slack-webhook-uri
+            image: quay.io/jcallen/vsphere-slack-notify:latest
+            imagePullPolicy: Always
+            name: powershell-scripts
+            resources: {}
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /var/run/secret/vcenter
+              name: vcenter-credentials
+              readOnly: true
+            - mountPath: /var/run/config/vcenter
+              name: vcenter-configs
+              readOnly: true
+          dnsPolicy: ClusterFirst
+          hostAliases:
+          - hostnames:
+            - vcs8e-vc.ocp2.dev.cluster.com
+            ip: 192.168.133.73
+          restartPolicy: Never
+          schedulerName: default-scheduler
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+          volumes:
+          - name: vcenter-credentials
+            secret:
+              defaultMode: 420
+              secretName: vcenter-credentials
+          - configMap:
+              defaultMode: 420
+              name: vcenter-configs
+            name: vcenter-configs

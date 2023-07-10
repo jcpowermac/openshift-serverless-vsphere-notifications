@@ -13,6 +13,11 @@ VM Count (soap): {1}
 Tag Count (rest): {2}
 "@
 
+$errmessage = @"
+vCenter: {0}
+Error: {1}
+"@
+
 foreach ($key in $cihash.Keys) {
     $cihash[$key].vcenter
     try {
@@ -36,7 +41,8 @@ foreach ($key in $cihash.Keys) {
 
         $caught
 
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $errStr
+
+        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($errmessage -f $cihash[$key].vcenter, $errStr)
         exit 1
     }
     finally {
