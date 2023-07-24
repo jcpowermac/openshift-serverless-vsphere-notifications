@@ -26,7 +26,7 @@ foreach ($key in $cihash.Keys) {
         Connect-VIServer -Server $cihash[$key].vcenter -Credential (Import-Clixml $cihash[$key].secret) | Out-Null
         
         # Get the cluster name
-        $clusterName = $cihash[$key].vcenter.ExtensionData.Clusters | Select-Object -First 1
+        $clusterName = $cihash[$key].vcenter.Clusters | Select-Object -First 1
 
         # Disable VMware HA
         Disable-VMwareHA -Cluster $clusterName
