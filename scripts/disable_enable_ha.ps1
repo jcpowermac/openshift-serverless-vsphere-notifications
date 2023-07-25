@@ -22,25 +22,29 @@ Error: {1}
 foreach ($key in $cihash.Keys) {
     $cihash[$key].vcenter
 
-if ($cihash[$key].vcenter -like "*ibmc.devcluster.openshift.com*") {
+#if ($cihash[$key].vcenter -like "*ibmc.devcluster.openshift.com*") {
 
     try {
 
         Connect-VIServer -Server $cihash[$key].vcenter -Credential (Import-Clixml $cihash[$key].secret) | Out-Null
         
         # Get the cluster name
-        $clusterName = Get-Cluster -Server $cihash[$key].vcenter | Select-Object -First 1 | Select-Object Name
+        #$clusterName = Get-Cluster -Server $cihash[$key].vcenter | Select-Object -First 1 | Select-Object Name
 
         # Disable VMware HA
-        Set-Cluster -Cluster $clusterName.Name -HAEnabled $false -Confirm:$false
+        Set-Cluster -Cluster $cihash[$key].cluster -HAEnabled $false -Confirm:$false
+        #Set-Cluster -Cluster $clusterName.Name -HAEnabled $false -Confirm:$false
+
 
         # Wait 120 seconds
         Start-Sleep -Seconds 120
 
         # Enable VMware HA
-        Set-Cluster -Cluster $clusterName.Name -HAEnabled $true -Confirm:$false
+        Set-Cluster -Cluster $cihash[$key].cluster -HAEnabled $true -Confirm:$false
+        #Set-Cluster -Cluster $clusterName.Name -HAEnabled $true -Confirm:$false
 
-        $clusterName.Name
+        $cihash[$key].cluster
+        #$clusterName.Name
        
         # we don't need messages unless its broke...
         #Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $vm.Count, $tag.Count)
@@ -59,7 +63,7 @@ if ($cihash[$key].vcenter -like "*ibmc.devcluster.openshift.com*") {
     finally {
         Disconnect-VIServer -Server * -Force:$true -Confirm:$false
     }
-}
+#}
 }
 
 exit 0
