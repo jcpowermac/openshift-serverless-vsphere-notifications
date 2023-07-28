@@ -36,8 +36,9 @@ RUN for f in "${HOME}" "/etc/hosts"; do \
       chmod -R g+rwX ${f}; \
     done
 
-USER user
-RUN code --install-extension "ms-vscode.powershell"
+# add later...
+#USER user
+#RUN code --install-extension "ms-vscode.powershell"
 
 WORKDIR /projects
 ENTRYPOINT ["/entrypoint.sh"]
