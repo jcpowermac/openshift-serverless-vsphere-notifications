@@ -1,4 +1,8 @@
+
 #!/bin/pwsh
+
+# Set-PSDebug -Trace 1
+
 . /var/run/config/vcenter/variables.ps1
 
 Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false | Out-Null
@@ -21,14 +25,12 @@ foreach ($key in $cihash.Keys) {
     try {
         Connect-VIServer -Server $cihash[$key].vcenter -Credential (Import-Clixml $cihash[$key].secret) | Out-Null
 
-        #Write-Host "Get-TagAssignment is slow..."
-        # Looks like this doesn't work in VMC
-        #$tagAssignments = @(Get-TagAssignment -ErrorAction Continue)
-        #$tags = @(Get-Tag | Where-Object { $_.Name -match '^ci*|^qeci*' })
+
+        # All the tags attached to the current virtual machines.
+        $tagAssignments = @(Get-TagAssignment -Entity (get-vm) -ErrorAction Continue)
         $tags = @(Get-Tag)
         $tagCategories = @(Get-TagCategory)
         $folders = @(Get-Folder | Where-Object { $_.IsChildTypeVm -eq $true })
-        $virtualMachines = @(Get-VM | Where-Object { $_.Name -match '^ci*|^qeci*' })
 
         Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $folders.Length, $tags.Length)
 
@@ -45,35 +47,27 @@ foreach ($key in $cihash.Keys) {
             }
         }
 
+        # loop through all the tags
         foreach ($tag in $tags) {
 
-            # zonal tags
+            # skip zonal tags
             if($tag.Name.StartsWith("us-")) {
                 continue
             }
 
+            # from get-tagassignment select all the virtual machines with tag
+            # if assignment does not exist Count will be 0
+            # if assignment exists Count must be less than or equal to 1 to remove.
+            $selectedAssignment = @($tagAssignments | Where-Object { $_.Tag.Name -eq $tag.Name })
 
-            #$selectedAssignment = @($tagAssignments | Where-Object { $_.Tag.Name -eq $tag.Name })
 
-            $selectedVirtualMachines = @($virtualMachines | Where-Object {$_.Name.StartsWith($tag.Name)})
-
-            # revisit this later...
-            # since in vmc we cannot get tag assignments this will always be 0
-
-            #if ( $selectedAssignment.Count -le 1) {
-            #    if(!$tagsToRemove.ContainsKey($tag.Name)) {
-            #        $tagsToRemove.Add($tag.Name, $tag)
-            #    }
-
-            #    if(!$tagCategoriesToRemove.ContainsKey($tag.Category.Name)) {
-            #        $tagCategoriesToRemove.Add($tag.Category.Name, $tag.Category)
-            #    }
-            #}
-
-            if($selectedVirtualMachines.Count -eq 0) {
+            if ( $selectedAssignment.Count -le 1) {
                 if(!$tagsToRemove.ContainsKey($tag.Name)) {
+
+                    $tag.Name
                     $tagsToRemove.Add($tag.Name, $tag)
                 }
+
                 if(!$tagCategoriesToRemove.ContainsKey($tag.Category.Name)) {
                     $tagCategoriesToRemove.Add($tag.Category.Name, $tag.Category)
                 }
@@ -109,3 +103,4 @@ foreach ($key in $cihash.Keys) {
 }
 
 exit 0
+
