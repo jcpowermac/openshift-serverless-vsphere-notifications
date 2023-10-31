@@ -1,6 +1,7 @@
 FROM mcr.microsoft.com/powershell:ubi-9
 
-RUN dnf upgrade --refresh -y
+RUN dnf upgrade --refresh -y && \
+    dnf install bind-utils -y
 
 ENV HOME=/home/user
 
