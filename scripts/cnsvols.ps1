@@ -29,7 +29,7 @@ foreach ($key in $cihash.Keys) {
 
         # the command below will reconcile datastore inventory which can get out of sync
         # the vSphere inventory of managed virtual disks can become temporarily out of synch with datastore disk backing metadata. This problem can be due to a transient condition, such as an I/O error, or it can happen if a datastore is briefly inaccessible. This problem has been observed only under stress testing.
-        $command = "govc disk.ls -R -ds=$cihash[$key].datastore"
+        $command = "govc disk.ls -R -ds=$($cihash[$key].datastore)"
 
         # Start the command
         $process = Start-Process -FilePath $command -Wait
