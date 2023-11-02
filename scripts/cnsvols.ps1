@@ -32,13 +32,20 @@ foreach ($key in $cihash.Keys) {
         # This problem can be due to a transient condition, such as an I/O error, or it can happen if a datastore is briefly inaccessible.
         # This problem has been observed only under stress testing.
 
-        $process = Start-Process -Wait -FilePath /bin/govc -ArgumentList @("disk.ls","-R","-ds", $cihash[$key].datastore) -PassThru
+        $process = Start-Process -Wait -FilePath /bin/govc -ArgumentList @("disk.ls", "-R", "-ds", $cihash[$key].datastore) -PassThru
 
         # Check the exit code of the command
-        if ($process.ExitCode -ne 0) {
-            #$stdout = $process.StandardOutput.ReadToEnd()
-            $stderr = $process.StandardError.ReadToEnd()
-            Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($stderr)
+        if ($null -ne $process) {
+            if ($process.ExitCode -ne 0) {
+                if ($null -ne $process.StandardError) {
+                    $stderr = $process.StandardError.ReadToEnd()
+                    Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($stderr)
+                }
+                if ($null -ne $process.StandardOutput) {
+                    $stdout = $process.StandardOutput.ReadToEnd()
+                    Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($stdout)
+                }
+            }
         }
 
         $process = Start-Process -Wait -RedirectStandardError $govcError -RedirectStandardOutput $govcOutput -FilePath /bin/govc -ArgumentList @("volume.ls", "-json", "-ds $($cihash[$key].datastore)") -PassThru
