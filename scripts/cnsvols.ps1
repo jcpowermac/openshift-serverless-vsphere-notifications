@@ -13,42 +13,20 @@ count: {1}
 
 
 foreach ($key in $cihash.Keys) {
+    $credential = Import-Clixml -Path $cihash[$key].secret
+
+    $Env:GOVC_PASSWORD = $credential.GetNetworkCredential().Password
+    $Env:GOVC_USERNAME = $credential.GetNetworkCredential().UserName
+    $Env:GOVC_URL = $cihash[$key].vcenter
+    $Env:GOVC_DATACENTER = $cihash[$key].datacenter
+    $Env:GOVC_INSECURE = 1
     try {
-        $credential = Import-Clixml -Path $cihash[$key].secret
-
-        $Env:GOVC_PASSWORD = $credential.GetNetworkCredential().Password
-        $Env:GOVC_USERNAME = $credential.GetNetworkCredential().UserName
-        $Env:GOVC_URL = $cihash[$key].vcenter
-        $Env:GOVC_DATACENTER = $cihash[$key].datacenter
-        $Env:GOVC_INSECURE = 1
-
         Connect-VIServer -Server $cihash[$key].vcenter -Credential $credential | Out-Null
 
         $govcOutput = "./volumes.json"
         $govcError = "./govcerror.txt"
 
-        # the command below will reconcile datastore inventory which can get out of sync
-        # the vSphere inventory of managed virtual disks can become temporarily out of synch with datastore disk backing metadata.
-        # This problem can be due to a transient condition, such as an I/O error, or it can happen if a datastore is briefly inaccessible.
-        # This problem has been observed only under stress testing.
-
-        $process = Start-Process -Wait -FilePath /bin/govc -ArgumentList @("disk.ls", "-R", "-ds", $cihash[$key].datastore) -PassThru
-
-        # Check the exit code of the command
-        if ($null -ne $process) {
-            if ($process.ExitCode -ne 0) {
-                if ($null -ne $process.StandardError) {
-                    $stderr = $process.StandardError.ReadToEnd()
-                    Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($stderr)
-                }
-                if ($null -ne $process.StandardOutput) {
-                    $stdout = $process.StandardOutput.ReadToEnd()
-                    Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($stdout)
-                }
-            }
-        }
-
-        $process = Start-Process -Wait -RedirectStandardError $govcError -RedirectStandardOutput $govcOutput -FilePath /bin/govc -ArgumentList @("volume.ls", "-json", "-ds $($cihash[$key].datastore)") -PassThru
+        $process = Start-Process -Wait -RedirectStandardError $govcError -RedirectStandardOutput $govcOutput -FilePath /bin/govc -ArgumentList @("volume.ls", "-json", "-ds $($cihash[$key].datastore)") -PassThru -ErrorAction Continue
 
         if ($process.ExitCode -eq 0) {
             $volumeHash = (Get-Content -Path $govcOutput | ConvertFrom-Json -AsHashtable)
@@ -68,6 +46,7 @@ foreach ($key in $cihash.Keys) {
             }
         }
         else {
+            Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text "CNS Volume clean up didn't run $($cihash[$key].vcenter)" 
             Get-Content -Path $govcError
         }
     }
@@ -76,10 +55,15 @@ foreach ($key in $cihash.Keys) {
         $errStr = $caught.ToString()
         $caught
         Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $errStr
-        exit 1
     }
     finally {
         Disconnect-VIServer -Server * -Force:$true -Confirm:$false
     }
+
+    # the command below will reconcile datastore inventory which can get out of sync
+    # the vSphere inventory of managed virtual disks can become temporarily out of synch with datastore disk backing metadata.
+    # This problem can be due to a transient condition, such as an I/O error, or it can happen if a datastore is briefly inaccessible.
+    # This problem has been observed only under stress testing.
+    Start-Process -Wait -FilePath /bin/govc -ArgumentList @("disk.ls", "-R", "-ds", $cihash[$key].datastore) -ErrorAction Continue
 }
 exit 0
