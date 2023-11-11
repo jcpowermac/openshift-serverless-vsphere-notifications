@@ -1,6 +1,6 @@
 {
   "workspaceMount": "",
-  "workspaceFolder": "/home/jimb0/DEVPOD",
+  "workspaceFolder": "${env:HOME}/DEVPOD",
   "runArgs": [
     // run container as current user
     "--userns=keep-id",
