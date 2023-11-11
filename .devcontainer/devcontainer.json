@@ -1,6 +1,6 @@
 {
   "workspaceMount": "",
-  "workspaceFolder": "${localWorkspaceFolder}",
+  "workspaceFolder": "${env:HOME}/DEVPOD",
   "runArgs": [
     // run container as current user
     "--userns=keep-id",
@@ -9,9 +9,9 @@
     // mount user home directory for things like git, ssh, and other configs
     "--volume=${env:HOME}:${env:HOME}",
     // ensure project directory is mounted incase it exists outside the home directory
-    "--volume=${localWorkspaceFolder}:${localWorkspaceFolder}",
+    "--volume=${env:HOME}/DEVPOD:${env:HOME}/DEVPOD",
     // isolate the .vscode-server folder so you don't overwrite settings from remote ssh vscode
-    "--volume=${localWorkspaceFolder}/.cache/vscode-server:${env:HOME}/.vscode-server"
+    "--volume=${env:HOME}/DEVPOD/.cache/vscode-server:${env:HOME}/.vscode-server"
   ],
   "containerEnv": {
     // ensure users home directory is the same inside the container as it is outside
