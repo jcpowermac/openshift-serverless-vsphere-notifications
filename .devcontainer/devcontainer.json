@@ -6,12 +6,7 @@
     "--userns=keep-id",
     // disable selinux isolation that breaks bind mounts
     "--security-opt=label=disable",
-    // mount user home directory for things like git, ssh, and other configs
-    "--volume=${env:HOME}:${env:HOME}",
-    // ensure project directory is mounted incase it exists outside the home directory
-    "--volume=/home/jimb0/DEVPOD:/home/jimb0/DEVPOD",
-    // isolate the .vscode-server folder so you don't overwrite settings from remote ssh vscode
-    "--volume=/home/jimb0/DEVPOD/.cache/vscode-server:${env:HOME}/.vscode-server"
+ 
   ],
   "containerEnv": {
     // ensure users home directory is the same inside the container as it is outside
