@@ -29,7 +29,7 @@ foreach ($key in $cihash.Keys) {
         $process = Start-Process -Wait -RedirectStandardError $govcError -RedirectStandardOutput $govcOutput -FilePath /bin/govc -ArgumentList @("volume.ls", "-json", "-ds $($cihash[$key].datastore)") -PassThru -ErrorAction Continue
 
         if ($process.ExitCode -eq 0) {
-            $volumeHash = (Get-Content -Path $govcOutput | ConvertFrom-Json -AsHashtable)
+            $volumeHash = (Get-Content -Path $govcOutput | ConvertFrom-Json)
 
             Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $volumeHash.Volume.Count)
 
