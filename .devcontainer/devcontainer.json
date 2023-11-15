@@ -1,0 +1,15 @@
+{
+  "workspaceMount": "",
+  
+  "runArgs": [
+    // run container as current user
+    "--userns=keep-id",
+    // disable selinux isolation that breaks bind mounts
+    "--security-opt=label=disable",
+ 
+  ],
+  "containerEnv": {
+    // ensure users home directory is the same inside the container as it is outside
+    "HOME": "${env:HOME}"
+  }
+}
