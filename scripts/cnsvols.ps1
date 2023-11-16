@@ -20,24 +20,23 @@ foreach ($key in $cihash.Keys) {
     $Env:GOVC_URL = $cihash[$key].vcenter
     $Env:GOVC_DATACENTER = $cihash[$key].datacenter
     $Env:GOVC_INSECURE = 1
-    write-host $cihash[$key].vcenter
 
     try {
         Connect-VIServer -Server $cihash[$key].vcenter -Credential $credential | Out-Null
 
         $govcOutput = "./volumes.json"
-        $govcError = "./govcerror.txt"
+        $govcError = "./$($cihash[$key].vcenter)-govcerror.txt"
+        $govcOutdisk = "./$($cihash[$key].vcenter)-govcoutdisk.txt"
 
-        write-host $cihash[$key].datastore
-        #write-host $($cihash[$key].datastore)
         write-host $cihash[$key].vcenter
+        write-host $cihash[$key].datastore
 
         # the command below will reconcile datastore inventory which can get out of sync
         # the vSphere inventory of managed virtual disks can become temporarily out of synch with datastore disk backing metadata.
         # This problem can be due to a transient condition, such as an I/O error, or it can happen if a datastore is briefly inaccessible.
         # This problem has been observed only under stress testing.
         write-host "starting datastore clean up"
-        Start-Process -Wait -FilePath /bin/govc -ArgumentList @("disk.ls", "-R", "-ds", $cihash[$key].datastore) -ErrorAction Continue
+        Start-Process -Wait -FilePath /bin/govc -ArgumentList @("disk.ls", "-R", "-ds", $cihash[$key].datastore) -ErrorAction Continue -RedirectStandardOutput $govcOutdisk
         write-host "DONE with datastore clean up"
        
         $process = Start-Process -Wait -RedirectStandardError $govcError -RedirectStandardOutput $govcOutput -FilePath /bin/govc -ArgumentList @("volume.ls", "-json", "-ds $($cihash[$key].datastore)") -PassThru -ErrorAction Continue
@@ -45,14 +44,14 @@ foreach ($key in $cihash.Keys) {
         if ($process.ExitCode -eq 0) {
             $volumeHash = Get-Content -Path $govcOutput | ConvertFrom-Json 
             #$volumeHash = (Get-Content -Path $govcOutput | ConvertFrom-Json -AsHashtable)
-            write-host $volumeHash.Volume.Count
+            write-host "CV count" $volumeHash.Volume.Count
 
-            Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $($cihash[$key].vcenter), $volumeHash.Volume.Count)
+            Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $($cihash[$key].vcenter), $($volumeHash.Volume.Count))
 
             foreach ($vol in $volumeHash.volume) {
                 $volumeId = $vol.VolumeId.Id
                 $clusterId = $vol.Metadata.ContainerCluster.ClusterId
-                $clusterInventory = Get-Inventory -Name $clusterId -ErrorAction Continue
+                $clusterInventory = Get-Inventory -Name $clusterId -erroraction 'silentlycontinue'
                 if ($clusterInventory.Count -eq 0) {
                     Write-Host "Delete: $($volumeId)"
                     Start-Process -Wait -FilePath /bin/govc -ArgumentList @("volume.rm", $volumeId) -ErrorAction Continue
