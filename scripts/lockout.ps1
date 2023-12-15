@@ -33,7 +33,10 @@ foreach ($key in $cihash.Keys) {
         }
 
         if ($lockedSsoAccounts.Count -gt 0) {
-            Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $lockedSsoAccounts -join " ")
+
+            $joinedAccounts = $lockedSsoAccounts -join " "
+
+            Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $joinedAccounts)
         }
 
     }
