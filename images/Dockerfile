@@ -23,6 +23,7 @@ RUN export POWERSHELL_TELEMETRY_OPTOUT=1 && \
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted ; \
           Install-Module -Force -Scope AllUsers PSSlack ; \
           Install-Module -Scope AllUsers VMware.PowerCLI ; \
+          Install-Module -Scope AllUsers -Name VMware.vSphere.SsoAdmin; \
           Set-PowerCLIConfiguration -Scope AllUsers -ParticipateInCeip:\$false -Confirm:\$false"
 
 RUN for f in "${HOME}" "/etc/hosts"; do \
