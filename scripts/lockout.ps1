@@ -28,7 +28,7 @@ foreach ($key in $cihash.Keys) {
 
         foreach ($user in $ssoUsers) {
             if ($user.Locked) {
-                $lockedSsoAccounts.Add($user.Name)
+                $lockedSsoAccounts += $user.Name
             }
         }
 
