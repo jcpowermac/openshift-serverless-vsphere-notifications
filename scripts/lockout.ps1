@@ -11,7 +11,7 @@ account(s): {1}
 
 foreach ($key in $cihash.Keys) {
     # skip devqe its goofy and we don't care
-    if ( $cihash[$key].vcenter -contains "*devqe*" ) {
+    if ( $key -eq "devqe" ) {
         continue
     }
 
