@@ -10,26 +10,31 @@ account(s): {1}
 "@
 
 foreach ($key in $cihash.Keys) {
+    # skip devqe its goofy and we don't care
+    if ( $cihash[$key].vcenter -contains "*devqe*" ) {
+        continue
+    }
 
     try {
         $cihash[$key].vcenter
 
-        Connect-SsoAdminServer  -SkipCertificateCheck -Server $cihash[$key].vcenter -Credential (Import-Clixml $cihash[$key].secret) | Out-Null
+        Connect-SsoAdminServer  -SkipCertificateCheck -Server $cihash[$key].vcenter -Credential (Import-Clixml $cihash[$key].secret) 
 
-        $user,$domain = $DefaultSsoAdminServers.User -split '@'
+        $user, $domain = $DefaultSsoAdminServers.User -split '@'
 
         $ssoUsers = Get-SsoPersonUser -Name "ci*" -Domain $domain
 
         $lockedSsoAccounts = @()
 
-        foreach($user in $ssoUsers) {
-            if($user.Locked) {
+        foreach ($user in $ssoUsers) {
+            if ($user.Locked) {
                 $lockedSsoAccounts.Add($user.Name)
             }
-
         }
 
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $lockedSsoAccounts -join " ")
+        if ($lockedSsoAccounts.Count -gt 0) {
+            Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $lockedSsoAccounts -join " ")
+        }
 
     }
     catch {
@@ -39,7 +44,7 @@ foreach ($key in $cihash.Keys) {
         Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $errStr
     }
     finally {
-        Disconnect-VIServer -Server * -Force:$true -Confirm:$false
+        Disconnect-SsoAdminServer -Server * 
     }
 }
 
