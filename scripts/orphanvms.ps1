@@ -34,13 +34,19 @@ foreach ($key in $cihash.Keys) {
 
                         Remove-VM -VM $vm -DeletePermanently:$true -Confirm:$false
                         
-                        $slackMessageVirtualMachines.Add($vm.Name)
+                        $slackMessageVirtualMachines += $vm.Name
                         break
                     }
                 }
             }
         }
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $slackMessageVirtualMachines -join ",")
+
+
+        if ($slackMessageVirtualMachines.Count -gt 0 ) {
+            $vmsMessage =  $slackMessageVirtualMachines -join ","
+            Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter,$vmsMessage)
+        }
+
     }
     catch {
         $caught = Get-Error
