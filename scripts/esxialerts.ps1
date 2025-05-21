@@ -20,7 +20,6 @@ foreach ($key in $cihash.Keys) {
         $cihash[$key].datastore
 
         Connect-VIServer -Server $cihash[$key].vcenter -Credential (Import-Clixml $cihash[$key].secret) | Out-Null
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter)
 
 
         $esxi = Get-VMHost 
