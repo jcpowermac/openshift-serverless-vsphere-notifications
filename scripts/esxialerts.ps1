@@ -8,11 +8,8 @@ vcenter: {0}
 esxi alerts: {1}
 "@
 
-
-
-$slackMessageEsxiAlerts = @()
-
 foreach ($key in $cihash.Keys) {
+    $slackMessageEsxiAlerts = @()
     try {
         $cihash[$key].vcenter
         $cihash[$key].datacenter
