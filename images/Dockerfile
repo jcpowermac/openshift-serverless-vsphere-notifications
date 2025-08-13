@@ -1,7 +1,8 @@
-FROM mcr.microsoft.com/powershell:ubi-9
+FROM mcr.microsoft.com/dotnet/sdk:9.0
 
-RUN dnf upgrade --refresh -y && \
-    dnf install bind-utils -y
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y bind9-utils curl wget gnupg2 software-properties-common
 
 ENV HOME=/home/user
 

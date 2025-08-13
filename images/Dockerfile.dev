@@ -1,13 +1,8 @@
-#FROM mcr.microsoft.com/powershell:ubi-9
+FROM mcr.microsoft.com/dotnet/sdk:9.0
 
-
-FROM quay.io/fedora/fedora:latest
-
-RUN dnf upgrade --refresh -y && \
-    rpm --import https://packages.microsoft.com/keys/microsoft.asc && \
-    sh -c 'echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/vscode.repo' && \
-    dnf install -y code && \
-    dnf install -y https://github.com/PowerShell/PowerShell/releases/download/v7.3.6/powershell-7.3.6-1.rh.x86_64.rpm
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y curl wget gnupg2 software-properties-common
 
 ENV HOME=/home/user
 

@@ -1,0 +1,58 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vcenteralarms
+  namespace: vsphere-alerts
+spec:
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    metadata:
+      creationTimestamp: null
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          creationTimestamp: null
+        spec:
+          containers:
+          - args:
+            - /bin/pwsh
+            - -File
+            - /projects/vcenteralarms.ps1
+            env:
+            - name: SLACK_WEBHOOK_URI
+              valueFrom:
+                secretKeyRef:
+                  key: uri
+                  name: slack-webhook-uri
+            image: image-registry.openshift-image-registry.svc:5000/vsphere-alerts/vsphere-tools:latest
+            imagePullPolicy: Always
+            name: powershell-scripts
+            resources: {}
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /var/run/secret/vcenter
+              name: vcenter-credentials
+              readOnly: true
+            - mountPath: /var/run/config/vcenter
+              name: vcenter-configs
+              readOnly: true
+          dnsPolicy: ClusterFirst
+          restartPolicy: Never
+          schedulerName: default-scheduler
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+          volumes:
+          - name: vcenter-credentials
+            secret:
+              defaultMode: 420
+              secretName: vcenter-credentials
+          - configMap:
+              defaultMode: 420
+              name: vcenter-configs
+            name: vcenter-configs
+  schedule: 0 */5 * * *
+  successfulJobsHistoryLimit: 1
+  suspend: false
