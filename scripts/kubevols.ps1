@@ -8,11 +8,29 @@ $cihash = ConvertFrom-Json -InputObject $ci -AsHashtable
 
 $today = Get-Date
 
-$slackMessage = @"
-Removing vmdk(s) from kubevols
-vcenter: {0}
-kubevols: {1}
-"@
+# Function to send formatted Slack message
+function Send-FormattedSlackMessage {
+    param(
+        [string]$Uri,
+        [hashtable]$KubevolData
+    )
+    
+    $totalKubevols = ($KubevolData.Values | Measure-Object -Sum).Sum
+    $vcenterCount = $KubevolData.Count
+    
+    $message = ":floppy_disk: *Kubernetes Volumes Summary*`n"
+    $message += "Total Kubevols: *$totalKubevols* | vCenters: *$vcenterCount*`n`n"
+    $message += "*Kubevol Count by vCenter:*`n"
+    
+    foreach ($vc in $KubevolData.Keys | Sort-Object) {
+        $count = $KubevolData[$vc]
+        $message += "`n• $vc`: $count kubevols"
+    }
+    
+    Send-SlackMessage -Uri $Uri -Text $message
+}
+
+$kubevolData = @{}  # Store kubevol counts per vCenter
 
 foreach ($key in $cihash.Keys) {
     $cihash[$key].vcenter
@@ -45,8 +63,8 @@ foreach ($key in $cihash.Keys) {
 
         $kubevol = $dsBrowser.SearchDatastoreSubFolders($rootKubeVolPath, $searchSpec)
 
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $kubevol[0].File.length)
-
+        # Store kubevol count for this vCenter
+        $kubevolData[$cihash[$key].vcenter] = $kubevol[0].File.length
 
         $kubevol[0].File | Where-Object -Property Path -like "*.vmdk" | ForEach-Object {
             try {
@@ -63,7 +81,7 @@ foreach ($key in $cihash.Keys) {
             catch {
                 $caught = Get-Error
                 $errStr = $caught.ToString()
-                Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $errStr
+                Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ":x: *Error in Kubevols script for $($cihash[$key].vcenter):*`n$errStr"
             }
         }
     }
@@ -73,11 +91,16 @@ foreach ($key in $cihash.Keys) {
 
         $caught
 
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $errStr
+        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ":x: *Error in Kubevols script for $($cihash[$key].vcenter):*`n$errStr"
     }
     finally {
         Disconnect-VIServer -Server * -Force:$true -Confirm:$false
     }
+}
+
+# Send consolidated message for all vCenters
+if ($kubevolData.Count -gt 0) {
+    Send-FormattedSlackMessage -Uri $Env:SLACK_WEBHOOK_URI -KubevolData $kubevolData
 }
 
 exit 0

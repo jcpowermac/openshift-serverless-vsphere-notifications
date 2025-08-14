@@ -3,16 +3,37 @@
 
 Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false | Out-Null
 $cihash = ConvertFrom-Json -InputObject $ci -AsHashtable
-$slackMessage = @"
-Removing storage policies
-vcenter: {0}
-storage policies: {1}
+
+# Function to send formatted Slack message
+function Send-FormattedSlackMessage {
+    param(
+        [string]$Uri,
+        [hashtable]$PolicyData
+    )
+    
+    $totalPolicies = ($PolicyData.Values | Measure-Object -Sum).Sum
+    $vcenterCount = $PolicyData.Count
+    
+    $message = @"
+:gear: *Storage Policy Summary*
+Total Policies: *$totalPolicies* | vCenters: *$vcenterCount*
+
+*Policy Count by vCenter:*
 "@
+    
+    foreach ($vc in $PolicyData.Keys | Sort-Object) {
+        $count = $PolicyData[$vc]
+        $message += "`n• $vc`: $count policies"
+    }
+    
+    Send-SlackMessage -Uri $Uri -Text $message
+}
+
+$policyData = @{}  # Store policy counts per vCenter
 
 #$deleteday = (Get-Date).AddDays(-4)
 foreach ($key in $cihash.Keys) {
     #$policyToRemove = @{}
-
 
     try {
         $cihash[$key].vcenter
@@ -23,7 +44,7 @@ foreach ($key in $cihash.Keys) {
         Connect-VIServer -Server $cihash[$key].vcenter -Credential (Import-Clixml $cihash[$key].secret) | Out-Null
 
         $storagePolicies = Get-SpbmStoragePolicy
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $storagePolicies.Count)
+        $policyData[$cihash[$key].vcenter] = $storagePolicies.Count
 
         foreach ($policy in $storagePolicies) {
 
@@ -45,7 +66,6 @@ foreach ($key in $cihash.Keys) {
                     }
                 }
             }
-
 
             #if ($policy.Name.Contains("ci")) {
             #    if (!$policyToRemove.ContainsKey($policy.Name)) {
@@ -73,12 +93,16 @@ foreach ($key in $cihash.Keys) {
         $caught = Get-Error
         $errStr = $caught.ToString()
         $caught
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $errStr
+        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ":x: *Error in Storage Policy script for $($cihash[$key].vcenter):*`n$errStr"
     }
     finally {
         Disconnect-VIServer -Server * -Force:$true -Confirm:$false
     }
 }
 
+# Send consolidated message for all vCenters
+if ($policyData.Count -gt 0) {
+    Send-FormattedSlackMessage -Uri $Env:SLACK_WEBHOOK_URI -PolicyData $policyData
+}
 
 exit 0

@@ -3,10 +3,53 @@
 
 Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false | Out-Null
 $cihash = ConvertFrom-Json -InputObject $ci -AsHashtable
-$slackMessage = @"
-vcenter: {0}
-vcenter alarms: {1}
+
+# Function to send formatted Slack message
+function Send-FormattedSlackMessage {
+    param(
+        [string]$Uri,
+        [hashtable]$AlarmData
+    )
+    
+    $totalAlarms = 0
+    $criticalCount = 0
+    $warningCount = 0
+    
+    foreach ($vc in $AlarmData.Keys) {
+        $totalAlarms += $AlarmData[$vc].Count
+        foreach ($alarm in $AlarmData[$vc]) {
+            if ($alarm -like "*:fire:*") { $criticalCount++ }
+            if ($alarm -like "*:warning:*") { $warningCount++ }
+        }
+    }
+    
+    if ($totalAlarms -eq 0) {
+        $message = @"
+:white_check_mark: *vCenter Health Status - All Clear*
+No active alarms detected across all vCenters
 "@
+    } else {
+        $message = @"
+:warning: *vCenter Health Status - Active Alarms*
+Total Alarms: *$totalAlarms* | Critical: *$criticalCount* | Warning: *$warningCount*
+
+*Alarms by vCenter:*
+"@
+        
+        foreach ($vc in $AlarmData.Keys | Sort-Object) {
+            if ($AlarmData[$vc].Count -gt 0) {
+                $message += "`n*$vc*:"
+                foreach ($alarm in $AlarmData[$vc]) {
+                    $message += "`n  $alarm"
+                }
+            }
+        }
+    }
+    
+    Send-SlackMessage -Uri $Uri -Text $message
+}
+
+$allAlarmData = @{}  # Store alarms per vCenter
 
 foreach ($key in $cihash.Keys) {
     $slackMessageVcAlarms = @()
@@ -112,9 +155,9 @@ foreach ($key in $cihash.Keys) {
             Write-Host "Could not check system alarms: $($_.Exception.Message)"
         }
         
-        if ($slackMessageVcAlarms.Count -gt 0 ) {
-            $vcAlarmMessage = $slackMessageVcAlarms -join "`n"
-            Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $vcAlarmMessage)
+        # Store alarms for this vCenter
+        if ($slackMessageVcAlarms.Count -gt 0) {
+            $allAlarmData[$cihash[$key].vcenter] = $slackMessageVcAlarms
         }
 
     }
@@ -124,12 +167,20 @@ foreach ($key in $cihash.Keys) {
 
         $caught
 
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $errStr
+        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ":x: *Error in vCenter Alarms script for $($cihash[$key].vcenter):*`n$errStr"
         exit 1
     }
     finally {
         Disconnect-VIServer -Server * -Force:$true -Confirm:$false
     }
+}
+
+# Send consolidated message for all vCenters
+if ($allAlarmData.Count -gt 0) {
+    Send-FormattedSlackMessage -Uri $Env:SLACK_WEBHOOK_URI -AlarmData $allAlarmData
+} else {
+    # Send "all clear" message if no alarms found
+    Send-FormattedSlackMessage -Uri $Env:SLACK_WEBHOOK_URI -AlarmData @{}
 }
 
 exit 0

@@ -3,11 +3,44 @@
 
 Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false | Out-Null
 $cihash = ConvertFrom-Json -InputObject $ci -AsHashtable
-$slackMessage = @"
-*** WARNING ci account locked out ***
-vcenter: {0}
-account(s): {1}
-"@
+
+# Function to send formatted Slack message
+function Send-FormattedSlackMessage {
+    param(
+        [string]$Uri,
+        [hashtable]$LockoutData
+    )
+    
+    $totalLockedAccounts = 0
+    $vcenterCount = 0
+    
+    foreach ($vc in $LockoutData.Keys) {
+        $totalLockedAccounts += $LockoutData[$vc].Count
+        if ($LockoutData[$vc].Count -gt 0) { $vcenterCount++ }
+    }
+    
+    if ($totalLockedAccounts -eq 0) {
+        $message = ":white_check_mark: *Account Lockout Status - All Clear*`n"
+        $message += "No locked accounts detected across all vCenters"
+    } else {
+        $message = ":warning: *Account Lockout Status - Action Required*`n"
+        $message += "Total Locked Accounts: *$totalLockedAccounts* | vCenters with Lockouts: *$vcenterCount*`n`n"
+        $message += "*Locked Accounts by vCenter:*`n"
+        
+        foreach ($vc in $LockoutData.Keys | Sort-Object) {
+            if ($LockoutData[$vc].Count -gt 0) {
+                $message += "`n*$vc*:"
+                foreach ($account in $LockoutData[$vc]) {
+                    $message += "`n  • $account"
+                }
+            }
+        }
+    }
+    
+    Send-SlackMessage -Uri $Uri -Text $message
+}
+
+$allLockoutData = @{}  # Store locked accounts per vCenter
 
 foreach ($key in $cihash.Keys) {
     # skip devqe its goofy and we don't care
@@ -32,11 +65,9 @@ foreach ($key in $cihash.Keys) {
             }
         }
 
+        # Store locked accounts for this vCenter
         if ($lockedSsoAccounts.Count -gt 0) {
-
-            $joinedAccounts = $lockedSsoAccounts -join " "
-
-            Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $joinedAccounts)
+            $allLockoutData[$cihash[$key].vcenter] = $lockedSsoAccounts
         }
 
     }
@@ -44,12 +75,19 @@ foreach ($key in $cihash.Keys) {
         $caught = Get-Error
         $errStr = $caught.ToString()
         $caught
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $errStr
+        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ":x: *Error in Account Lockout script for $($cihash[$key].vcenter):*`n$errStr"
     }
     finally {
         Disconnect-SsoAdminServer -Server * 
     }
 }
 
+# Send consolidated message for all vCenters
+if ($allLockoutData.Count -gt 0) {
+    Send-FormattedSlackMessage -Uri $Env:SLACK_WEBHOOK_URI -LockoutData $allLockoutData
+} else {
+    # Send "all clear" message if no locked accounts found
+    Send-FormattedSlackMessage -Uri $Env:SLACK_WEBHOOK_URI -LockoutData @{}
+}
 
 exit 0

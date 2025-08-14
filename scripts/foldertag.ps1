@@ -7,12 +7,34 @@
 
 Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false | Out-Null
 $cihash = ConvertFrom-Json -InputObject $ci -AsHashtable
-$slackMessage = @"
-Removing Folders and Tags
-vcenter: {0}
-folders: {1}
-tags: {2}
-"@
+
+# Function to send formatted Slack message
+function Send-FormattedSlackMessage {
+    param(
+        [string]$Uri,
+        [hashtable]$FolderData,
+        [hashtable]$TagData
+    )
+    
+    $totalFolders = ($FolderData.Values | Measure-Object -Sum).Sum
+    $totalTags = ($TagData.Values | Measure-Object -Sum).Sum
+    $vcenterCount = $FolderData.Count
+    
+    $message = ":file_folder: *Folder and Tag Cleanup Summary*`n"
+    $message += "Total Folders: *$totalFolders* | Total Tags: *$totalTags* | vCenters: *$vcenterCount*`n`n"
+    $message += "*Counts by vCenter:*`n"
+    
+    foreach ($vc in $FolderData.Keys | Sort-Object) {
+        $folderCount = $FolderData[$vc]
+        $tagCount = $TagData[$vc]
+        $message += "`n• $vc`: $folderCount folders, $tagCount tags"
+    }
+    
+    Send-SlackMessage -Uri $Uri -Text $message
+}
+
+$folderData = @{}  # Store folder counts per vCenter
+$tagData = @{}     # Store tag counts per vCenter
 
 foreach ($key in $cihash.Keys) {
     $tagCategoriesToRemove = @{}
@@ -25,14 +47,15 @@ foreach ($key in $cihash.Keys) {
     try {
         Connect-VIServer -Server $cihash[$key].vcenter -Credential (Import-Clixml $cihash[$key].secret) | Out-Null
 
-
         # All the tags attached to the current virtual machines.
         $tagAssignments = @(Get-TagAssignment -Entity (get-vm) -ErrorAction Continue)
         $tags = @(Get-Tag)
         $tagCategories = @(Get-TagCategory)
         $folders = @(Get-Folder | Where-Object { $_.IsChildTypeVm -eq $true })
 
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $cihash[$key].vcenter, $folders.Length, $tags.Length)
+        # Store counts for this vCenter
+        $folderData[$cihash[$key].vcenter] = $folders.Length
+        $tagData[$cihash[$key].vcenter] = $tags.Length
 
         foreach ($f in $folders) {
             $length = (($f | Get-View).ChildEntity.Length)
@@ -60,7 +83,6 @@ foreach ($key in $cihash.Keys) {
             # if assignment exists Count must be less than or equal to 1 to remove.
             $selectedAssignment = @($tagAssignments | Where-Object { $_.Tag.Name -eq $tag.Name })
 
-
             if ( $selectedAssignment.Count -le 1) {
                 if(!$tagsToRemove.ContainsKey($tag.Name)) {
 
@@ -81,7 +103,6 @@ foreach ($key in $cihash.Keys) {
             Remove-TagCategory -Category $tagCategoriesToRemove[$tagCatKey] -Confirm:$false -ErrorAction Continue
         }
 
-
         foreach($c in $tagCategories) {
             $findTags = @(Get-tag -Category $c)
             if($findTags.Count -eq 0) {
@@ -95,11 +116,16 @@ foreach ($key in $cihash.Keys) {
 
         $caught
 
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $errStr
+        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ":x: *Error in Folder/Tag script for $($cihash[$key].vcenter):*`n$errStr"
     }
     finally {
         Disconnect-VIServer -Server * -Force:$true -Confirm:$false
     }
+}
+
+# Send consolidated message for all vCenters
+if ($folderData.Count -gt 0) {
+    Send-FormattedSlackMessage -Uri $Env:SLACK_WEBHOOK_URI -FolderData $folderData -TagData $tagData
 }
 
 exit 0

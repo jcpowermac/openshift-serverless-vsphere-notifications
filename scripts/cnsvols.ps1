@@ -5,15 +5,35 @@
 Set-PowerCLIConfiguration -InvalidCertificateAction:Ignore -Confirm:$false | Out-Null
 $cihash = ConvertFrom-Json -InputObject $ci -AsHashtable
 
-$slackMessage = @"
-cns volumes
-vcenter: {0}
-count: {1}
-"@
+# Function to send formatted Slack message
+function Send-FormattedSlackMessage {
+    param(
+        [string]$Uri,
+        [string]$Vcenter,
+        [hashtable]$VolumeData
+    )
+    
+    $totalVolumes = ($VolumeData.Values | Measure-Object -Sum).Sum
+    $datastoreCount = $VolumeData.Count
+    
+    $message = @"
+:package: *CNS Volumes Summary - $Vcenter*
+Total Volumes: *$totalVolumes* | Datastores: *$datastoreCount*
 
+*Datastore Breakdown:*
+"@
+    
+    foreach ($ds in $VolumeData.Keys | Sort-Object) {
+        $count = $VolumeData[$ds]
+        $message += "`n• $ds`: $count volumes"
+    }
+    
+    Send-SlackMessage -Uri $Uri -Text $message
+}
 
 foreach ($key in $cihash.Keys) {
     $credential = Import-Clixml -Path $cihash[$key].secret
+    $vcenterData = @{}  # Store volume counts per datastore
 
     $Env:GOVC_PASSWORD = $credential.GetNetworkCredential().Password
     $Env:GOVC_USERNAME = $credential.GetNetworkCredential().UserName
@@ -32,7 +52,6 @@ foreach ($key in $cihash.Keys) {
             $datastores = Get-Datastore -Location $dc | Where-Object -Property Name -Like "vsan*"
 
             foreach ($ds in $datastores) {
-
                 $govcOutput = "./volumes.json"
                 $govcError = "./$($cihash[$key].vcenter)-$($ds.Name)-govcerror.txt"
                 $govcOutdisk = "./$($cihash[$key].vcenter)-$($ds.Name)-govcoutdisk.txt"
@@ -54,8 +73,9 @@ foreach ($key in $cihash.Keys) {
                     $volumeHash = Get-Content -Path $govcOutput | ConvertFrom-Json 
                     #$volumeHash = (Get-Content -Path $govcOutput | ConvertFrom-Json -AsHashtable)
                     write-host "CV count" $volumeHash.Volume.Count
-
-                    Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ($slackMessage -f $($cihash[$key].vcenter), $($volumeHash.Volume.Count))
+                    
+                    # Store volume count for this datastore
+                    $vcenterData[$ds.Name] = $volumeHash.Volume.Count
 
                     foreach ($vol in $volumeHash.volume) {
                         $volumeId = $vol.VolumeId.Id
@@ -71,21 +91,25 @@ foreach ($key in $cihash.Keys) {
                     }
                 }
                 else {
-                    Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text "CNS Volume clean up didn't run $($cihash[$key].vcenter)" 
+                    write-host "CNS Volume clean up didn't run for datastore $($ds.Name)"
                     Get-Content -Path $govcError
                 }
             }
+        }
+        
+        # Send consolidated message for this vCenter
+        if ($vcenterData.Count -gt 0) {
+            Send-FormattedSlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Vcenter $cihash[$key].vcenter -VolumeData $vcenterData
         }
     }
     catch {
         $caught = Get-Error
         $errStr = $caught.ToString()
         $caught
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text $errStr
+        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ":x: *Error in CNS Volumes script for $($cihash[$key].vcenter):*`n$errStr"
     }
     finally {
         Disconnect-VIServer -Server * -Force:$true -Confirm:$false
     }
-
 }
 exit 0
