@@ -162,6 +162,40 @@ The existing vSphere monitoring scripts have been updated to provide better orga
 - Error messages are also improved with consistent formatting
 - All scripts maintain their original functionality while improving output
 
+## Intelligent Alerting
+
+### Account Lockout Script (`lockout.ps1`)
+The lockout script runs every minute as a cronjob and now implements **intelligent alerting** without requiring persistent storage:
+
+- **Only sends Slack messages when there are actual changes** in account lockout status
+- **Uses hash-based change detection** to compare current status with previous run
+- **Sends immediate alerts** for any status changes (new lockouts, unlocks, etc.)
+- **Always sends error messages** regardless of frequency for critical issues
+- **Includes timestamp** in messages for tracking when status was last checked
+
+**How it works:**
+1. **Hash Generation**: Creates a unique hash of current lockout status
+2. **Change Detection**: Compares current hash with previous run's hash
+3. **Immediate Alerts**: Sends notification whenever lockout status changes
+4. **No Spam**: Skips notification when status is unchanged
+
+### Orphan VM Script (`orphanvms.ps1`)
+The orphan VM script also implements **intelligent alerting** to prevent spam:
+
+- **Only sends Slack messages when there are actual changes** in orphaned VM status
+- **Uses hash-based change detection** to compare current status with previous run
+- **Sends immediate alerts** when new orphaned VMs are detected or cleaned up
+- **Always sends error messages** regardless of frequency for critical issues
+- **Includes timestamp** in messages for tracking when status was last checked
+
+**How it works:**
+1. **Hash Generation**: Creates a unique hash of current orphaned VM status
+2. **Change Detection**: Compares current hash with previous run's hash
+3. **Immediate Alerts**: Sends notification whenever orphaned VM status changes
+4. **No Spam**: Skips notification when status is unchanged
+
+This prevents spam while ensuring important changes are communicated immediately, without requiring persistent storage between cronjob runs. Perfect for CI environments where lockouts and orphaned VMs can happen at any time and need immediate attention.
+
 ## Future Enhancements
 
 - Consider implementing Slack Block Kit for even richer formatting

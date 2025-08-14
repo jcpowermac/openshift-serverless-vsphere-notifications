@@ -39,7 +39,30 @@ function Send-FormattedSlackMessage {
         }
     }
     
+    # Add timestamp for tracking
+    $message += "`n`n*Last Check:* $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')"
+    
     Send-SlackMessage -Uri $Uri -Text $message
+}
+
+# Function to create a hash of the current orphan VM status for change detection
+function Get-OrphanStatusHash {
+    param(
+        [hashtable]$OrphanData
+    )
+    
+    $statusString = ""
+    foreach ($vc in $OrphanData.Keys | Sort-Object) {
+        $vms = $OrphanData[$vc] | Sort-Object
+        $statusString += "$vc:$($vms -join ',')|"
+    }
+    
+    # Create a simple hash of the status string
+    $hash = 0
+    for ($i = 0; $i -lt $statusString.Length; $i++) {
+        $hash = (($hash -shl 5) - $hash + [int]$statusString[$i]) -band 0xFFFFFFFF
+    }
+    return $hash
 }
 
 $allOrphanData = @{}  # Store orphaned VMs per vCenter
@@ -88,12 +111,30 @@ foreach ($key in $cihash.Keys) {
     }
 }
 
-# Send consolidated message for all vCenters
-if ($allOrphanData.Count -gt 0) {
+# Get current status hash
+$currentStatusHash = Get-OrphanStatusHash -OrphanData $allOrphanData
+
+# Get previous status hash from environment variable (if available)
+$previousStatusHash = 0
+if ($Env:PREVIOUS_ORPHAN_STATUS_HASH) {
+    try {
+        $previousStatusHash = [int]$Env:PREVIOUS_ORPHAN_STATUS_HASH
+    }
+    catch {
+        $previousStatusHash = 0
+    }
+}
+
+# Only send Slack message if status changed or if this is the first run
+if ($currentStatusHash -ne $previousStatusHash) {
     Send-FormattedSlackMessage -Uri $Env:SLACK_WEBHOOK_URI -OrphanData $allOrphanData
+    
+    # Update environment variable for next run (these won't persist between cronjob runs, but that's okay)
+    $Env:PREVIOUS_ORPHAN_STATUS_HASH = $currentStatusHash.ToString()
+    
+    Write-Host "Slack notification sent. Status changed. New hash: $currentStatusHash"
 } else {
-    # Send "all clear" message if no orphaned VMs found
-    Send-FormattedSlackMessage -Uri $Env:SLACK_WEBHOOK_URI -OrphanData @{}
+    Write-Host "No notification sent. Status unchanged. Current hash: $currentStatusHash"
 }
 
 exit 0
