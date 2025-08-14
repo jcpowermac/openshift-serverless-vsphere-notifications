@@ -90,7 +90,8 @@ function Get-VMStatusHash {
 # Function to get VM DRS score
 function Get-VMDRSScore {
     param(
-        [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VM
+        [Parameter(ValueFromPipeline=$true)]
+        $VM
     )
     
     try {
@@ -110,7 +111,8 @@ function Get-VMDRSScore {
 # Function to get VM CPU readiness
 function Get-VMCPUReady {
     param(
-        [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VM
+        [Parameter(ValueFromPipeline=$true)]
+        $VM
     )
     
     try {
@@ -131,7 +133,8 @@ function Get-VMCPUReady {
 # Function to get VM CPU usage
 function Get-VMCPUUsage {
     param(
-        [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VM
+        [Parameter(ValueFromPipeline=$true)]
+        $VM
     )
     
     try {
@@ -162,35 +165,46 @@ foreach ($key in $cihash.Keys) {
         # Get all VMs that match CI naming pattern
         $virtualMachines = @(Get-VM | Where-Object { $_.Name -match '^ci-*' })
         
+        Write-Host "Found $($virtualMachines.Count) CI VMs in $($cihash[$key].vcenter)"
+        
         $vmData = @()
         $vmWarnings = @()
 
         foreach ($vm in $virtualMachines) {
-            # Get DRS score
-            $drsScore = Get-VMDRSScore -VM $vm
+            Write-Host "Processing VM: $($vm.Name) (Type: $($vm.GetType().Name))"
             
-            # Get CPU readiness
-            $cpuReady = Get-VMCPUReady -VM $vm
-            
-            # Get CPU usage
-            $cpuUsage = Get-VMCPUUsage -VM $vm
-            
-            # Create VM data object
-            $vmInfo = [PSCustomObject]@{
-                Name = $vm.Name
-                DrsScore = $drsScore
-                CpuReady = $cpuReady
-                CpuUsage = $cpuUsage
+            try {
+                # Get DRS score
+                $drsScore = Get-VMDRSScore -VM $vm
+                
+                # Get CPU readiness
+                $cpuReady = Get-VMCPUReady -VM $vm
+                
+                # Get CPU usage
+                $cpuUsage = Get-VMCPUUsage -VM $vm
+                
+                # Create VM data object
+                $vmInfo = [PSCustomObject]@{
+                    Name = $vm.Name
+                    DrsScore = $drsScore
+                    CpuReady = $cpuReady
+                    CpuUsage = $cpuUsage
+                }
+                
+                $vmData += $vmInfo
+                
+                # Check for warnings
+                if ($cpuReady -gt 4 -or $drsScore -lt 70) {
+                    $vmWarnings += $vmInfo
+                }
+                
+                Write-Host "$($vm.Name) - DRS: $drsScore%, CPU Ready: $cpuReady%, CPU Usage: $cpuUsage%"
             }
-            
-            $vmData += $vmInfo
-            
-            # Check for warnings
-            if ($cpuReady -gt 4 -or $drsScore -lt 70) {
-                $vmWarnings += $vmInfo
+            catch {
+                Write-Host "Error processing VM $($vm.Name): $($_.Exception.Message)"
+                # Continue with next VM instead of failing completely
+                continue
             }
-            
-            Write-Host "$($vm.Name) - DRS: $drsScore%, CPU Ready: $cpuReady%, CPU Usage: $cpuUsage%"
         }
         
         # Store data for this vCenter

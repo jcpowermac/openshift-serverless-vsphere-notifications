@@ -33,9 +33,6 @@ spec:
             - mountPath: /var/run/config/vcenter
               name: vcenter-configs
               readOnly: true
-            - mountPath: /projects
-              name: scripts
-              readOnly: true
           hostAliases:
           - hostnames:
             - vcs8e-vc.ocp2.dev.cluster.com
@@ -48,8 +45,5 @@ spec:
           - name: vcenter-configs
             configMap:
               name: vcenter-configs
-          - name: scripts
-            configMap:
-              name: scripts
   schedule: "*/5 * * * *"
   successfulJobsHistoryLimit: 1
