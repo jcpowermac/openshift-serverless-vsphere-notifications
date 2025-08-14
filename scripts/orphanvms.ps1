@@ -54,7 +54,7 @@ function Get-OrphanStatusHash {
     $statusString = ""
     foreach ($vc in $OrphanData.Keys | Sort-Object) {
         $vms = $OrphanData[$vc] | Sort-Object
-        $statusString += "$vc:$($vms -join ',')|"
+        $statusString += "$($vc):$($vms -join ',')|"
     }
     
     # Create a simple hash of the status string
@@ -103,7 +103,7 @@ foreach ($key in $cihash.Keys) {
 
         $caught
 
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ":x: *Error in Orphan VMs script for $($cihash[$key].vcenter):*`n$errStr"
+        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ":x: *Error in Orphan VMs script for $($cihash[$key].vcenter)*`n$errStr"
         exit 1
     }
     finally {

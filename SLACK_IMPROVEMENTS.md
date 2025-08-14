@@ -146,6 +146,24 @@ The existing vSphere monitoring scripts have been updated to provide better orga
     • [account2]
   ```
 
+### `scripts/vm-drs-monitoring.ps1` - VM DRS & CPU Monitoring (NEW)
+- **Purpose**: Monitors VM DRS scoring, CPU readiness, and CPU usage for CI VMs
+- **Warnings**: CPU readiness > 4% or DRS score < 70%
+- **Format**:
+  ```
+  :warning: VM DRS & CPU Monitoring - Warnings Detected
+  Total Warnings: [total] | vCenters with Issues: [count]
+  
+  Warnings by vCenter:
+  [vcenter1]:
+    • [vm_name] - CPU Ready: 5.2%, DRS Score: 65% | CPU Usage: 45.3%
+  
+  All VMs Summary:
+  [vcenter1]:
+    :warning: [vm_name] - DRS: 65% | CPU Ready: 5.2% | CPU Usage: 45.3%
+    :white_check_mark: [vm_name2] - DRS: 85% | CPU Ready: 2.1% | CPU Usage: 32.7%
+  ```
+
 ## Benefits
 
 1. **Reduced Noise**: Fewer messages in Slack channels

@@ -52,7 +52,7 @@ function Get-LockoutStatusHash {
     $statusString = ""
     foreach ($vc in $LockoutData.Keys | Sort-Object) {
         $accounts = $LockoutData[$vc] | Sort-Object
-        $statusString += "$vc:$($accounts -join ',')|"
+        $statusString += "$($vc):$($accounts -join ',')|"
     }
     
     # Create a simple hash of the status string
@@ -99,7 +99,7 @@ foreach ($key in $cihash.Keys) {
         $errStr = $caught.ToString()
         $caught
         # Always send error messages regardless of frequency
-        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ":x: *Error in Account Lockout script for $($cihash[$key].vcenter):*`n$errStr"
+        Send-SlackMessage -Uri $Env:SLACK_WEBHOOK_URI -Text ":x: *Error in Account Lockout script for $($cihash[$key].vcenter)*`n$errStr"
     }
     finally {
         Disconnect-SsoAdminServer -Server * 
