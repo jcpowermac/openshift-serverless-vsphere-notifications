@@ -21,13 +21,7 @@ function Send-FormattedSlackMessage {
         if ($WarningData[$vc].Count -gt 0) { $vcenterCount++ }
     }
     
-    if ($totalWarnings -eq 0) {
-        # Don't send "all clear" messages - this prevents spam
-        Write-Host "No warnings detected. Skipping Slack notification to prevent spam."
-        return
-    }
-    
-    # Only send message when there are actual warnings
+    # This function is only called when there are warnings
     $message = ":warning: *VM DRS & CPU Monitoring - Warnings Detected*`n"
     $message += "Total Warnings: *$totalWarnings* | vCenters with Issues: *$vcenterCount*`n`n"
     
@@ -233,44 +227,22 @@ Write-Host "Previous status hash: $previousStatusHash"
 Write-Host "Total vCenters with data: $($allVMData.Count)"
 Write-Host "Total VMs found: $(($allVMData.Values | ForEach-Object { $_.Count } | Measure-Object -Sum).Sum)"
 
-# Only send Slack message if:
-# 1. Status changed AND
-# 2. We actually have VM data to report AND
-# 3. We have actual warnings to report
-if ($currentStatusHash -ne $previousStatusHash -and $allVMData.Count -gt 0) {
-    # Check if we have actual VM data (not just empty arrays)
-    $hasActualData = $false
-    foreach ($vc in $allVMData.Keys) {
-        if ($allVMData[$vc].Count -gt 0) {
-            $hasActualData = $true
-            break
-        }
-    }
+# Only send Slack message if we have actual warnings to report
+if ($warningData.Count -gt 0) {
+    # We have warnings - send a message
+    Write-Host "Warnings detected. Sending Slack notification..."
+    Send-FormattedSlackMessage -Uri $Env:SLACK_WEBHOOK_URI -WarningData $warningData -AllVMData $allVMData
     
-    if ($hasActualData) {
-        # Only send if we have warnings
-        if ($warningData.Count -gt 0) {
-            Write-Host "Status changed and warnings detected. Sending Slack notification..."
-            Send-FormattedSlackMessage -Uri $Env:SLACK_WEBHOOK_URI -WarningData $warningData -AllVMData $allVMData
-            
-            # Update environment variable for next run (these won't persist between cronjob runs, but that's okay)
-            $Env:PREVIOUS_VM_DRS_STATUS_HASH = $currentStatusHash.ToString()
-            
-            Write-Host "Slack notification sent. Status changed. New hash: $currentStatusHash"
-        } else {
-            Write-Host "Status changed but no warnings detected. Skipping Slack notification."
-            $Env:PREVIOUS_VM_DRS_STATUS_HASH = $currentStatusHash.ToString()
-        }
-    } else {
-        Write-Host "No VMs found to report. Skipping Slack notification."
-        $Env:PREVIOUS_VM_DRS_STATUS_HASH = $currentStatusHash.ToString()
-    }
+    # Update environment variable for next run
+    $Env:PREVIOUS_VM_DRS_STATUS_HASH = $currentStatusHash.ToString()
+    
+    Write-Host "Slack notification sent. Warnings reported."
 } else {
-    if ($allVMData.Count -eq 0) {
-        Write-Host "No VMs found. Skipping Slack notification."
-    } else {
-        Write-Host "No notification sent. Status unchanged. Current hash: $currentStatusHash"
-    }
+    # No warnings - completely silent, no Slack message
+    Write-Host "No warnings detected. No Slack notification sent."
+    
+    # Update environment variable for next run
+    $Env:PREVIOUS_VM_DRS_STATUS_HASH = $currentStatusHash.ToString()
 }
 
 exit 0
