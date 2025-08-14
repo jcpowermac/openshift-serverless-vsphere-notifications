@@ -22,46 +22,33 @@ function Send-FormattedSlackMessage {
     }
     
     if ($totalWarnings -eq 0) {
-        $message = ":white_check_mark: *VM DRS & CPU Monitoring - All Clear*`n"
-        $message += "No warnings detected across all vCenters`n`n"
-        $message += "*Summary of All VMs:*`n"
-        
-        foreach ($vc in $AllVMData.Keys | Sort-Object) {
-            $message += "`n*$vc*:"
-            foreach ($vm in $AllVMData[$vc] | Sort-Object Name) {
-                $message += "`n  • $($vm.Name) - DRS: $($vm.DrsScore)% | CPU Ready: $($vm.CpuReady)% | CPU Usage: $($vm.CpuUsage)%"
+        # Don't send "all clear" messages - this prevents spam
+        Write-Host "No warnings detected. Skipping Slack notification to prevent spam."
+        return
+    }
+    
+    # Only send message when there are actual warnings
+    $message = ":warning: *VM DRS & CPU Monitoring - Warnings Detected*`n"
+    $message += "Total Warnings: *$totalWarnings* | vCenters with Issues: *$vcenterCount*`n`n"
+    
+    foreach ($vc in $WarningData.Keys | Sort-Object) {
+        if ($WarningData[$vc].Count -gt 0) {
+            $message += "*$vc*`n"
+            foreach ($vm in $WarningData[$vc] | Sort-Object Name) {
+                $warningReasons = @()
+                if ($vm.CpuReady -gt 4) { $warningReasons += "CPU Ready: $($vm.CpuReady)%" }
+                if ($vm.DrsScore -lt 70) { $warningReasons += "DRS Score: $($vm.DrsScore)%" }
+                
+                $message += "  • $($vm.Name)`n"
+                $message += "    - Issues: $($warningReasons -join ', ')`n"
+                $message += "    - CPU Usage: $($vm.CpuUsage)%`n"
             }
-        }
-    } else {
-        $message = ":warning: *VM DRS & CPU Monitoring - Warnings Detected*`n"
-        $message += "Total Warnings: *$totalWarnings* | vCenters with Issues: *$vcenterCount*`n`n"
-        $message += "*Warnings by vCenter:*`n"
-        
-        foreach ($vc in $WarningData.Keys | Sort-Object) {
-            if ($WarningData[$vc].Count -gt 0) {
-                $message += "`n*$vc*:"
-                foreach ($vm in $WarningData[$vc]) {
-                    $warningReasons = @()
-                    if ($vm.CpuReady -gt 4) { $warningReasons += "CPU Ready: $($vm.CpuReady)%" }
-                    if ($vm.DrsScore -lt 70) { $warningReasons += "DRS Score: $($vm.DrsScore)%" }
-                    
-                    $message += "`n  • $($vm.Name) - $($warningReasons -join ', ') | CPU Usage: $($vm.CpuUsage)%"
-                }
-            }
-        }
-        
-        $message += "`n`n*All VMs Summary:*`n"
-        foreach ($vc in $AllVMData.Keys | Sort-Object) {
-            $message += "`n*$vc*:"
-            foreach ($vm in $AllVMData[$vc] | Sort-Object Name) {
-                $status = if ($vm.CpuReady -gt 4 -or $vm.DrsScore -lt 70) { ":warning:" } else { ":white_check_mark:" }
-                $message += "`n  $status $($vm.Name) - DRS: $($vm.DrsScore)% | CPU Ready: $($vm.CpuReady)% | CPU Usage: $($vm.CpuUsage)%"
-            }
+            $message += "`n"
         }
     }
     
     # Add timestamp for tracking
-    $message += "`n`n*Last Check:* $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')"
+    $message += "*Last Check:* $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')"
     
     Send-SlackMessage -Uri $Uri -Text $message
 }
@@ -241,16 +228,49 @@ if ($Env:PREVIOUS_VM_DRS_STATUS_HASH) {
     }
 }
 
-# Only send Slack message if status changed or if this is the first run
-if ($currentStatusHash -ne $previousStatusHash) {
-    Send-FormattedSlackMessage -Uri $Env:SLACK_WEBHOOK_URI -WarningData $warningData -AllVMData $allVMData
+Write-Host "Current status hash: $currentStatusHash"
+Write-Host "Previous status hash: $previousStatusHash"
+Write-Host "Total vCenters with data: $($allVMData.Count)"
+Write-Host "Total VMs found: $(($allVMData.Values | ForEach-Object { $_.Count } | Measure-Object -Sum).Sum)"
+
+# Only send Slack message if:
+# 1. Status changed AND
+# 2. We actually have VM data to report AND
+# 3. We have actual warnings to report
+if ($currentStatusHash -ne $previousStatusHash -and $allVMData.Count -gt 0) {
+    # Check if we have actual VM data (not just empty arrays)
+    $hasActualData = $false
+    foreach ($vc in $allVMData.Keys) {
+        if ($allVMData[$vc].Count -gt 0) {
+            $hasActualData = $true
+            break
+        }
+    }
     
-    # Update environment variable for next run (these won't persist between cronjob runs, but that's okay)
-    $Env:PREVIOUS_VM_DRS_STATUS_HASH = $currentStatusHash.ToString()
-    
-    Write-Host "Slack notification sent. Status changed. New hash: $currentStatusHash"
+    if ($hasActualData) {
+        # Only send if we have warnings
+        if ($warningData.Count -gt 0) {
+            Write-Host "Status changed and warnings detected. Sending Slack notification..."
+            Send-FormattedSlackMessage -Uri $Env:SLACK_WEBHOOK_URI -WarningData $warningData -AllVMData $allVMData
+            
+            # Update environment variable for next run (these won't persist between cronjob runs, but that's okay)
+            $Env:PREVIOUS_VM_DRS_STATUS_HASH = $currentStatusHash.ToString()
+            
+            Write-Host "Slack notification sent. Status changed. New hash: $currentStatusHash"
+        } else {
+            Write-Host "Status changed but no warnings detected. Skipping Slack notification."
+            $Env:PREVIOUS_VM_DRS_STATUS_HASH = $currentStatusHash.ToString()
+        }
+    } else {
+        Write-Host "No VMs found to report. Skipping Slack notification."
+        $Env:PREVIOUS_VM_DRS_STATUS_HASH = $currentStatusHash.ToString()
+    }
 } else {
-    Write-Host "No notification sent. Status unchanged. Current hash: $currentStatusHash"
+    if ($allVMData.Count -eq 0) {
+        Write-Host "No VMs found. Skipping Slack notification."
+    } else {
+        Write-Host "No notification sent. Status unchanged. Current hash: $currentStatusHash"
+    }
 }
 
 exit 0
