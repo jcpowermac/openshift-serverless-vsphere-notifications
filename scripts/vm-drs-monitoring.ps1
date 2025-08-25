@@ -110,18 +110,32 @@ function Get-VMCPUReady {
             # Handle both single values and arrays
             $cpuReadyValue = if ($cpuReady -is [array]) { $cpuReady[0].Value } else { $cpuReady.Value }
             
+            # Get the actual interval from the stat object
+            $statObject = if ($cpuReady -is [array]) { $cpuReady[0] } else { $cpuReady }
+            $intervalSeconds = $statObject.IntervalSecs
+            
             # Get VM information for vCPU count
             $vmInfo = Get-VM -Name $VM.Name
             $numCpus = $vmInfo.NumCpu
             
-            # CPU Ready is in milliseconds over a 20-second interval (20000ms)
-            # Formula: (cpu.ready.summation in ms / (interval in ms * number of vCPUs)) * 100
-            # For realtime stats, interval is typically 20 seconds = 20000ms
-            $intervalMs = 20000
-            $cpuReadyPercent = ($cpuReadyValue / ($intervalMs * $numCpus)) * 100
+            # Try multiple calculation methods to find the correct one
+            $intervalMs = $intervalSeconds * 1000
             
-            # Debug output
-            Write-Host "  DEBUG: VM $($VM.Name) - CPUs: $numCpus, Ready(ms): $cpuReadyValue, Interval: ${intervalMs}ms, Calculated: $([math]::Round($cpuReadyPercent, 2))%" -ForegroundColor Gray
+            # Method 1: Standard formula (cpu.ready.summation in ms / (interval in ms * vCPUs)) * 100
+            $method1 = ($cpuReadyValue / ($intervalMs * $numCpus)) * 100
+            
+            # Method 2: Alternative formula without vCPU multiplication (some sources suggest this)
+            $method2 = ($cpuReadyValue / $intervalMs) * 100
+            
+            # Method 3: Using different time base (vSphere might use different intervals)
+            $method3 = ($cpuReadyValue / ($intervalMs / $numCpus)) * 100
+            
+            # Debug output with multiple methods
+            Write-Host "  DEBUG: VM $($VM.Name) - CPUs: $numCpus, Ready(ms): $cpuReadyValue, IntervalSecs: $intervalSeconds" -ForegroundColor Gray
+            Write-Host "  DEBUG: Method 1 (std): $([math]::Round($method1, 2))%, Method 2 (no vCPU): $([math]::Round($method2, 2))%, Method 3 (alt): $([math]::Round($method3, 2))%" -ForegroundColor Gray
+            
+            # For now, let's try method 2 (without vCPU multiplication) as it might be closer to UI values
+            $cpuReadyPercent = $method2
             
             return [math]::Round($cpuReadyPercent, 2)
         }
