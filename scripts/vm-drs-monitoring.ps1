@@ -30,7 +30,7 @@ function Send-FormattedSlackMessage {
             $message += "*$vc*`n"
             foreach ($vm in $WarningData[$vc] | Sort-Object Name) {
                 $warningReasons = @()
-                if ($vm.CpuReady -gt 5) { $warningReasons += "CPU Ready: $($vm.CpuReady)%" }
+                if ($vm.CpuReady -ge 5) { $warningReasons += "CPU Ready: $($vm.CpuReady)%" }
                 if ($vm.DrsScore -lt 70) { $warningReasons += "DRS Score: $($vm.DrsScore)%" }
                 
                 $message += "  • $($vm.Name)`n"
@@ -118,24 +118,10 @@ function Get-VMCPUReady {
             $vmInfo = Get-VM -Name $VM.Name
             $numCpus = $vmInfo.NumCpu
             
-            # Try multiple calculation methods to find the correct one
+            # CPU Ready calculation: (cpu.ready.summation in ms / interval in ms) * 100
+            # Note: Do NOT divide by vCPU count - this matches vSphere UI calculations
             $intervalMs = $intervalSeconds * 1000
-            
-            # Method 1: Standard formula (cpu.ready.summation in ms / (interval in ms * vCPUs)) * 100
-            $method1 = ($cpuReadyValue / ($intervalMs * $numCpus)) * 100
-            
-            # Method 2: Alternative formula without vCPU multiplication (some sources suggest this)
-            $method2 = ($cpuReadyValue / $intervalMs) * 100
-            
-            # Method 3: Using different time base (vSphere might use different intervals)
-            $method3 = ($cpuReadyValue / ($intervalMs / $numCpus)) * 100
-            
-            # Debug output with multiple methods
-            Write-Host "  DEBUG: VM $($VM.Name) - CPUs: $numCpus, Ready(ms): $cpuReadyValue, IntervalSecs: $intervalSeconds" -ForegroundColor Gray
-            Write-Host "  DEBUG: Method 1 (std): $([math]::Round($method1, 2))%, Method 2 (no vCPU): $([math]::Round($method2, 2))%, Method 3 (alt): $([math]::Round($method3, 2))%" -ForegroundColor Gray
-            
-            # For now, let's try method 2 (without vCPU multiplication) as it might be closer to UI values
-            $cpuReadyPercent = $method2
+            $cpuReadyPercent = ($cpuReadyValue / $intervalMs) * 100
             
             return [math]::Round($cpuReadyPercent, 2)
         }
@@ -212,10 +198,10 @@ foreach ($key in $cihash.Keys) {
                 
                 # Check for warnings
                 $hasWarning = $false
-                if ($cpuReady -gt 5) { 
+                if ($cpuReady -ge 5) { 
                     $vmWarnings += $vmInfo
                     $hasWarning = $true
-                    Write-Host "  WARNING: CPU Ready $cpuReady% > 5%" -ForegroundColor Yellow
+                    Write-Host "  WARNING: CPU Ready $cpuReady% >= 5%" -ForegroundColor Yellow
                 }
                 if ($drsScore -lt 70) { 
                     if (-not $hasWarning) { $vmWarnings += $vmInfo }
@@ -280,7 +266,7 @@ foreach ($vc in $warningData.Keys) {
     Write-Host "  ${vc}: $($warningData[$vc].Count) warnings" -ForegroundColor Cyan
     foreach ($vm in $warningData[$vc]) {
         $reasons = @()
-        if ($vm.CpuReady -gt 5) { $reasons += "CPU Ready: $($vm.CpuReady)%" }
+        if ($vm.CpuReady -ge 5) { $reasons += "CPU Ready: $($vm.CpuReady)%" }
         if ($vm.DrsScore -lt 70) { $reasons += "DRS Score: $($vm.DrsScore)%" }
         Write-Host "    - $($vm.Name): $($reasons -join ', ')" -ForegroundColor Cyan
     }
