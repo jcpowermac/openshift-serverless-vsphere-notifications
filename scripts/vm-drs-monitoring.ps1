@@ -251,7 +251,7 @@ Write-Host "Total VMs found: $(($allVMData.Values | ForEach-Object { $_.Count } 
 # Debug warning data
 Write-Host "Warning Data Summary:" -ForegroundColor Cyan
 foreach ($vc in $warningData.Keys) {
-    Write-Host "  $vc: $($warningData[$vc].Count) warnings" -ForegroundColor Cyan
+    Write-Host "  ${vc}: $($warningData[$vc].Count) warnings" -ForegroundColor Cyan
     foreach ($vm in $warningData[$vc]) {
         $reasons = @()
         if ($vm.CpuReady -gt 5) { $reasons += "CPU Ready: $($vm.CpuReady)%" }
