@@ -30,7 +30,7 @@ function Send-FormattedSlackMessage {
             $message += "*$vc*`n"
             foreach ($vm in $WarningData[$vc] | Sort-Object Name) {
                 $warningReasons = @()
-                if ($vm.CpuReady -gt 4) { $warningReasons += "CPU Ready: $($vm.CpuReady)%" }
+                if ($vm.CpuReady -gt 5) { $warningReasons += "CPU Ready: $($vm.CpuReady)%" }
                 if ($vm.DrsScore -lt 70) { $warningReasons += "DRS Score: $($vm.DrsScore)%" }
                 
                 $message += "  • $($vm.Name)`n"
@@ -60,12 +60,20 @@ function Get-VMStatusHash {
         }
     }
     
-    # Create a simple hash of the status string
-    $hash = 0
+    # Create a simple hash of the status string with overflow protection
+    $hash = [long]0
     for ($i = 0; $i -lt $statusString.Length; $i++) {
-        $hash = (($hash -shl 5) - $hash + [int]$statusString[$i]) -band 0xFFFFFFFF
+        try {
+            $charValue = [int]$statusString[$i]
+            $newHash = (($hash -shl 5) - $hash + $charValue) -band 0x7FFFFFFF
+            $hash = $newHash
+        }
+        catch {
+            # If overflow occurs, reset and continue
+            $hash = [long]([int]$statusString[$i])
+        }
     }
-    return $hash
+    return [int]$hash
 }
 
 # Function to get VM DRS score
@@ -99,8 +107,10 @@ function Get-VMCPUReady {
     try {
         $cpuReady = $VM | Get-Stat -Stat cpu.ready.summation -Realtime -MaxSamples 1 -ErrorAction SilentlyContinue
         if ($cpuReady) {
+            # Handle both single values and arrays
+            $cpuReadyValue = if ($cpuReady -is [array]) { $cpuReady[0].Value } else { $cpuReady.Value }
             # Convert from nanoseconds to percentage (assuming 100% = 1000ms = 1,000,000,000 nanoseconds)
-            $cpuReadyPercent = ($cpuReady.Value / 10000000) * 100
+            $cpuReadyPercent = ($cpuReadyValue / 10000000) * 100
             return [math]::Round($cpuReadyPercent, 2)
         }
         return 0
@@ -175,11 +185,19 @@ foreach ($key in $cihash.Keys) {
                 $vmData += $vmInfo
                 
                 # Check for warnings
-                if ($cpuReady -gt 4 -or $drsScore -lt 70) {
+                $hasWarning = $false
+                if ($cpuReady -gt 5) { 
                     $vmWarnings += $vmInfo
+                    $hasWarning = $true
+                    Write-Host "  WARNING: CPU Ready $cpuReady% > 5%" -ForegroundColor Yellow
+                }
+                if ($drsScore -lt 70) { 
+                    if (-not $hasWarning) { $vmWarnings += $vmInfo }
+                    $hasWarning = $true
+                    Write-Host "  WARNING: DRS Score $drsScore% < 70%" -ForegroundColor Yellow
                 }
                 
-                Write-Host "$($vm.Name) - DRS: $drsScore%, CPU Ready: $cpuReady%, CPU Usage: $cpuUsage%"
+                Write-Host "$($vm.Name) - DRS: $drsScore%, CPU Ready: $cpuReady%, CPU Usage: $cpuUsage%" -ForegroundColor $(if ($hasWarning) { "Red" } else { "Green" })
             }
             catch {
                 Write-Host "Error processing VM $($vm.Name): $($_.Exception.Message)"
@@ -192,6 +210,9 @@ foreach ($key in $cihash.Keys) {
         $allVMData[$cihash[$key].vcenter] = $vmData
         if ($vmWarnings.Count -gt 0) {
             $warningData[$cihash[$key].vcenter] = $vmWarnings
+            Write-Host "vCenter $($cihash[$key].vcenter): Found $($vmWarnings.Count) VMs with warnings" -ForegroundColor Yellow
+        } else {
+            Write-Host "vCenter $($cihash[$key].vcenter): No warnings detected" -ForegroundColor Green
         }
 
     }
@@ -226,6 +247,18 @@ Write-Host "Current status hash: $currentStatusHash"
 Write-Host "Previous status hash: $previousStatusHash"
 Write-Host "Total vCenters with data: $($allVMData.Count)"
 Write-Host "Total VMs found: $(($allVMData.Values | ForEach-Object { $_.Count } | Measure-Object -Sum).Sum)"
+
+# Debug warning data
+Write-Host "Warning Data Summary:" -ForegroundColor Cyan
+foreach ($vc in $warningData.Keys) {
+    Write-Host "  $vc: $($warningData[$vc].Count) warnings" -ForegroundColor Cyan
+    foreach ($vm in $warningData[$vc]) {
+        $reasons = @()
+        if ($vm.CpuReady -gt 5) { $reasons += "CPU Ready: $($vm.CpuReady)%" }
+        if ($vm.DrsScore -lt 70) { $reasons += "DRS Score: $($vm.DrsScore)%" }
+        Write-Host "    - $($vm.Name): $($reasons -join ', ')" -ForegroundColor Cyan
+    }
+}
 
 # Only send Slack message if we have actual warnings to report
 if ($warningData.Count -gt 0) {
