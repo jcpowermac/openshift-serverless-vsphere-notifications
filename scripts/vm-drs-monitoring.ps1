@@ -109,8 +109,20 @@ function Get-VMCPUReady {
         if ($cpuReady) {
             # Handle both single values and arrays
             $cpuReadyValue = if ($cpuReady -is [array]) { $cpuReady[0].Value } else { $cpuReady.Value }
-            # Convert from nanoseconds to percentage (assuming 100% = 1000ms = 1,000,000,000 nanoseconds)
-            $cpuReadyPercent = ($cpuReadyValue / 10000000) * 100
+            
+            # Get VM information for vCPU count
+            $vmInfo = Get-VM -Name $VM.Name
+            $numCpus = $vmInfo.NumCpu
+            
+            # CPU Ready is in milliseconds over a 20-second interval (20000ms)
+            # Formula: (cpu.ready.summation in ms / (interval in ms * number of vCPUs)) * 100
+            # For realtime stats, interval is typically 20 seconds = 20000ms
+            $intervalMs = 20000
+            $cpuReadyPercent = ($cpuReadyValue / ($intervalMs * $numCpus)) * 100
+            
+            # Debug output
+            Write-Host "  DEBUG: VM $($VM.Name) - CPUs: $numCpus, Ready(ms): $cpuReadyValue, Interval: ${intervalMs}ms, Calculated: $([math]::Round($cpuReadyPercent, 2))%" -ForegroundColor Gray
+            
             return [math]::Round($cpuReadyPercent, 2)
         }
         return 0
